@@ -19,11 +19,12 @@ type Terminate struct {}
 
 func (s *ChallengerSession) Downward(resp ResponderMessage) ChallengerMessage {
 	if s.tree.IsLeaf(s.ptr) {
-		if _, correct := resp.(StateTransition); !correct {
+		if _, correct := resp.(Terminate); !correct {
 			panic("unexpected response type")
 		}
 
-		// the verifier should now check the state transition
+		// the verifier should now check the state transition, know that the challenger
+		// agrees that we have found the leaf
 		return Terminate{}
 	} else {
 		// find the diff in the next level

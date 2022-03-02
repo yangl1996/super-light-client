@@ -12,15 +12,20 @@ type NextChildren struct {
 }
 
 type StateTransition struct {
-	Data interface{}
+	From interface{}
+	FromProof interface{}
+	To interface{}
+}
+
+func (s *ResponderSession) revealTransition(h Hash) StateTransition {
+	fh := s.tree.GetPrevSibling(h)
+	return StateTransition{s.tree.GetData(fh), s.tree.GetProof(fh), s.tree.GetData(h)}
 }
 
 func NewResponderSession(tree MerkleTree, from Hash) (*ResponderSession, ResponderMessage) {
 	s := &ResponderSession{tree, from}
 	if s.tree.IsLeaf(s.ptr) {
-		// TODO: the responder should prove state transition. We are now just returning the
-		// leaf data.
-		return s, StateTransition{s.tree.GetData(s.ptr)}
+		return s, s.revealTransition(s.ptr)
 	} else {
 		return s, NextChildren{s.tree.GetChildren(from)}
 	}
@@ -34,7 +39,7 @@ func (s *ResponderSession) Downward(req ChallengerMessage) ResponderMessage {
 	idx := req.(OpenNext).Index
 	s.ptr = s.tree.GetChildren(s.ptr)[idx]
 	if s.tree.IsLeaf(s.ptr) {
-		return StateTransition{s.tree.GetData(s.ptr)}
+		return s.revealTransition(s.ptr)
 	} else {
 		return NextChildren{s.tree.GetChildren(s.ptr)}
 	}
