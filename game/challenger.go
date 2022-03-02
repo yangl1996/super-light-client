@@ -20,7 +20,7 @@ type Terminate struct {}
 func (s *ChallengerSession) Downward(resp ResponderMessage) ChallengerMessage {
 	if s.tree.IsLeaf(s.ptr) {
 		if _, correct := resp.(StateTransition); !correct {
-			panic("unexpected response type from the responder")
+			panic("unexpected response type")
 		}
 
 		// the verifier should now check the state transition
@@ -28,7 +28,7 @@ func (s *ChallengerSession) Downward(resp ResponderMessage) ChallengerMessage {
 	} else {
 		// find the diff in the next level
 		if _, correct := resp.(NextChildren); !correct {
-			panic("unexpected response type from the responder")
+			panic("unexpected response type")
 		}
 
 		respHashes := resp.(NextChildren).Hashes

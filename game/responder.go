@@ -22,12 +22,16 @@ func NewResponderSession(tree MerkleTree, from Hash) (*ResponderSession, Respond
 		// leaf data.
 		return s, StateTransition{s.tree.GetData(s.ptr)}
 	} else {
-		children := s.tree.GetChildren(from)
-		return s, NextChildren{children}
+		return s, NextChildren{s.tree.GetChildren(from)}
 	}
 }
 
-func (s *ResponderSession) Downward(idx int) ResponderMessage {
+func (s *ResponderSession) Downward(req ChallengerMessage) ResponderMessage {
+	if _, correct := req.(OpenNext); !correct {
+		panic("unexpected challenge type")
+	}
+
+	idx := req.(OpenNext).Index
 	s.ptr = s.tree.GetChildren(s.ptr)[idx]
 	if s.tree.IsLeaf(s.ptr) {
 		return StateTransition{s.tree.GetData(s.ptr)}
