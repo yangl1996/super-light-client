@@ -1,10 +1,10 @@
 package game
 
 type ChallengerSession struct {
-	tree MerkleTree
-	ptr Hash
-	I <-chan ResponderMessage
-	O chan<- ChallengerMessage
+	Tree MerkleTree
+	ptr  Hash
+	I    <-chan ResponderMessage
+	O    chan<- ChallengerMessage
 }
 
 type ChallengerMessage interface{}
@@ -22,7 +22,7 @@ func (s *ChallengerSession) Run() {
 		}
 
 		respHashes := resp.(NextChildren).Hashes
-		ourHashes := s.tree.GetChildren(s.ptr)
+		ourHashes := s.Tree.GetChildren(s.ptr)
 		if len(respHashes) != len(ourHashes) {
 			panic("incompatible dimensions of merkle trees")
 		}
@@ -39,9 +39,8 @@ func (s *ChallengerSession) Run() {
 		if !found {
 			panic("identical children in bisection game")
 		}
-		if s.tree.IsLeaf(s.ptr) {
+		if s.Tree.IsLeaf(s.ptr) {
 			return
 		}
 	}
 }
-
