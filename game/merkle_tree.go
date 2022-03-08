@@ -171,20 +171,20 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 			m.leaves = append(m.leaves, h)
 			m.nodes[h] = l
 		}
-		for len(nextHashes) >= 1 {
+		for len(nextHashes) > 1 {
 			var hashes []Hash	// it is important that we allocate a new array because
 								// internal nodes are referencing into nextHashes
 			nb := len(nextHashes) / dim
 			for i := 0; i < nb; i++ {
 				n := inMemoryMerkleTreeInternal{
-					children: nextHashes[nb*dim:nb*dim+dim],
+					children: nextHashes[i*dim:i*dim+dim],
 					subtreeSize: size/nb,
 				}
-				h := m.mh.ComputeParent(nextHashes[nb*dim:nb*dim+dim])
+				h := m.mh.ComputeParent(nextHashes[i*dim:i*dim+dim])
 				m.nodes[h] = n
 				hashes = append(hashes, h)
 				for j := 0; j < dim; j++ {
-					m.parent[nextHashes[nb*dim+j]] = h
+					m.parent[nextHashes[i*dim+j]] = h
 				}
 			}
 			nextHashes = hashes
