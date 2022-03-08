@@ -19,7 +19,22 @@ type StateTransition struct {
 	To interface{}		// to contains the current state, and the tx that causes the transition
 }
 
+type MountainRange struct {
+	Roots []Hash
+	Size int
+}
+
 var zeroHash = Hash{}
+
+func (s *ResponderSession) mountainRange() MountainRange {
+	r := MountainRange {
+		Roots: s.tree.GetRoots(),
+	}
+	for _, rt := range r.Roots {
+		r.Size += s.tree.GetSubtreeSize(rt)
+	}
+	return r
+}
 
 func (s *ResponderSession) revealTransition(h Hash) StateTransition {
 	fh := s.tree.GetPrevSibling(h)
