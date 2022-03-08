@@ -8,10 +8,10 @@ import (
 type Hash [32]byte
 
 type MerkleTree interface {
-	GetSubtreeSize() int
+	GetSubtreeSize(node Hash) int
 	GetRoots() []Hash
-    GetChildren(node Hash) []Hash
-    GetProof(node Hash) []Hash
+	GetChildren(node Hash) []Hash
+	GetProof(node Hash) []Hash
 	IsLeaf(node Hash) bool
 	GetData(node Hash) interface{}
 	GetPrevSibling(node Hash) Hash	// returns 0 if nonexistent
@@ -42,6 +42,7 @@ func (h *SHA256Hasher) ComputeParent(children []Hash) Hash {
 
 type inMemoryMerkleTreeLeaf struct {
 	data []byte
+	index int
 }
 
 type inMemoryMerkleTreeInternal struct {
@@ -52,9 +53,71 @@ type inMemoryMerkleTreeInternal struct {
 // a read-only merkle tree stored in the memory
 type InMemoryMerkleTree struct {
 	nodes map[Hash]interface{}
+	parent map[Hash]Hash
 	leaves []Hash
 	roots []Hash
 	mh MerkleHasher
+}
+
+func (m *InMemoryMerkleTree) GetSubtreeSize(node Hash) int {
+	switch n := m.nodes[node].(type) {
+	case inMemoryMerkleTreeLeaf:
+		return 1
+	case inMemoryMerkleTreeInternal:
+		return n.subtreeSize
+	default:
+		panic("unknown node type")
+	}
+}
+
+func (m *InMemoryMerkleTree) GetRoots() []Hash {
+	return m.roots
+}
+
+func (m *InMemoryMerkleTree) GetChildren(node Hash) []Hash {
+	return m.nodes[node].(inMemoryMerkleTreeInternal).children
+}
+
+func (m *InMemoryMerkleTree) GetProof(node Hash) []Hash {
+	_, yes := m.nodes[node].(inMemoryMerkleTreeLeaf)
+	if !yes {
+		panic("node is not a leaf")
+	}
+	proof := []Hash{}
+	for {
+		parent, there := m.parent[node]
+		if !there {
+			break
+		}
+		pn := m.nodes[parent].(inMemoryMerkleTreeInternal)
+		proof = append(proof, pn.children...)
+		node = parent
+	}
+	return proof
+}
+
+func (m *InMemoryMerkleTree) IsLeaf(node Hash) bool {
+	switch m.nodes[node].(type) {
+	case inMemoryMerkleTreeLeaf:
+		return true
+	case inMemoryMerkleTreeInternal:
+		return false
+	default:
+		panic("unknown node type")
+	}
+}
+
+func (m *InMemoryMerkleTree) GetData(node Hash) interface{} {
+	return m.nodes[node].(inMemoryMerkleTreeLeaf).data
+}
+
+func (m *InMemoryMerkleTree) GetPrevSibling(node Hash) Hash {
+	n := m.nodes[node].(inMemoryMerkleTreeLeaf)
+	if n.index > 0 {
+		return m.leaves[n.index-1]
+	} else {
+		return Hash{}
+	}
 }
 
 func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
@@ -62,6 +125,7 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 	m := &InMemoryMerkleTree{
 		mh: mh,
 		nodes: make(map[Hash]interface{}),
+		parent: make(map[Hash]Hash),
 	}
 
 	for len(data)> 0 {
@@ -72,7 +136,10 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 		}
 		var nextHashes []Hash
 		for i := 0; i < size; i++ {
-			l := inMemoryMerkleTreeLeaf{data[i]}
+			l := inMemoryMerkleTreeLeaf{
+				data: data[i],
+				index: len(m.leaves),
+			}
 			h := sha256.Sum256(data[i])
 			nextHashes = append(nextHashes, h)
 			m.leaves = append(m.leaves, h)
@@ -90,12 +157,17 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 				h := m.mh.ComputeParent(nextHashes[nb*dim:nb*dim+dim])
 				m.nodes[h] = n
 				hashes = append(hashes, h)
+				for j := 0; j < dim; j++ {
+					m.parent[nextHashes[nb*dim+j]] = h
+				}
 			}
 			nextHashes = hashes
 		}
 		// append the root
 		m.roots = append(m.roots, nextHashes[0])
-
+		data = data[size:]
 	}
 	return m
 }
+
+var test MerkleTree = &InMemoryMerkleTree{}
