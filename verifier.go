@@ -5,6 +5,10 @@ import (
 	"log"
 )
 
+type peer struct {
+
+}
+
 func verify(args []string) {
 	cmd := flag.NewFlagSet("verify", flag.ExitOnError)
 	cmd.Parse(args)

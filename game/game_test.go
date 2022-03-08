@@ -10,13 +10,13 @@ func TestFindDiff(t *testing.T) {
 	tree1 := generateTree(273, 5)
 	tree2 := generateTree(273, 5, 213)
 
-	c2v := make(chan ChallengerMessage, 100)
-	v2p := make(chan ChallengerMessage, 100)
-	p2v := make(chan ResponderMessage, 100)
-	v2c := make(chan ResponderMessage, 100)
+	c2v := make(chan Message, 100)
+	v2p := make(chan Message, 100)
+	p2v := make(chan Message, 100)
+	v2c := make(chan Message, 100)
 
-	c := &ChallengerSession{tree1, Hash{}, v2c, c2v}
-	p := &ResponderSession{tree2, Hash{}, v2p, p2v}
+	c := &Session{tree1, v2c, c2v, Hash{}}
+	p := &Session{tree2, v2p, p2v, Hash{}}
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
@@ -28,10 +28,8 @@ func TestFindDiff(t *testing.T) {
 		wg.Done()
 	}()
 	v := Verifier{
-		ToC:          v2c,
-		FromC:        c2v,
-		ToR:          v2p,
-		FromR:        p2v,
+		To:           []chan<- Message{v2c, v2p},
+		From:         []<-chan Message{c2v, p2v},
 		Dim:          5,
 		MerkleHasher: NewSHA256Hasher(5),
 	}

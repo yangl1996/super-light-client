@@ -1,13 +1,20 @@
 package game
 
-type ResponderSession struct {
-	Tree MerkleTree
-	ptr  Hash
-	I    <-chan ChallengerMessage
-	O    chan<- ResponderMessage
+import (
+	"math/rand"
+)
+
+var zeroHash = Hash{}
+
+type Message interface{}
+
+type OpenNext struct {
+	Index int
 }
 
-type ResponderMessage interface{}
+type StartRoot struct {
+	Index int
+}
 
 type NextChildren struct {
 	Hashes []Hash
@@ -22,32 +29,48 @@ type StateTransition struct {
 type MountainRange struct {
 	Roots []Hash
 	Sizes []int
+	Rand int
 }
 
-var zeroHash = Hash{}
-
-func (s *ResponderSession) mountainRange() MountainRange {
-	r := MountainRange{
-		Roots: s.Tree.GetRoots(),
-	}
-	for _, rt := range r.Roots {
-		r.Sizes = append(r.Sizes, s.Tree.GetSubtreeSize(rt))
-	}
-	return r
+type Session struct {
+	Tree MerkleTree
+	I    <-chan Message
+	O    chan<- Message
+	ptr  Hash
 }
 
-func (s *ResponderSession) revealTransition(h Hash) StateTransition {
-	fh := s.Tree.GetPrevSibling(h)
-	if fh != zeroHash {
-		return StateTransition{s.Tree.GetData(fh), s.Tree.GetProof(fh), s.Tree.GetData(h)}
+func DecideChallenger(m ...MountainRange) int {
+	winner := 0
+	winnerSize := 0
+	winnerRng := 0
+	for i, mr := range m {
+		size := 0
+		for _, sz := range mr.Sizes {
+			size += sz
+		}
+		if (size > winnerSize) || (size == winnerSize && mr.Rand > winnerRng) {
+			winner = i
+			winnerSize = size
+			winnerRng = mr.Rand
+		}
+	}
+	return winner
+}
+
+func (s *Session) Run() {
+	mr := s.mountainRange()
+	s.O <- mr
+	peerMr := (<-s.I).(MountainRange)
+	c := DecideChallenger(mr, peerMr)
+	if c == 0 {
+		s.runChallenger(peerMr)
 	} else {
-		return StateTransition{nil, nil, s.Tree.GetData(h)}
+		s.runResponder()
 	}
 }
 
-func (s *ResponderSession) Run() {
+func (s *Session) runResponder() {
 	defer close(s.O)
-	s.O <- s.mountainRange()
 	msg := <-s.I
 	sr := msg.(StartRoot)
 	s.ptr = s.Tree.GetRoots()[sr.Index]
@@ -72,3 +95,77 @@ func (s *ResponderSession) Run() {
 		}
 	}
 }
+
+func (s *Session) runChallenger(mr MountainRange) {
+	defer close(s.O)
+	rt := s.setStartPtr(mr)
+	s.O <- rt
+
+	for resp := range s.I {
+		// find the diff in the next level
+		if _, correct := resp.(NextChildren); !correct {
+			panic("unexpected response type")
+		}
+
+		respHashes := resp.(NextChildren).Hashes
+		ourHashes := s.Tree.GetChildren(s.ptr)
+		if len(respHashes) != len(ourHashes) {
+			panic("incompatible dimensions of merkle trees")
+		}
+		found := false
+		for i := range ourHashes {
+			if ourHashes[i] != respHashes[i] {
+				// go downwards to the conflicting child
+				s.ptr = ourHashes[i]
+				s.O <- OpenNext{i}
+				found = true
+				break
+			}
+		}
+		if !found {
+			panic("identical children in bisection game")
+		}
+		if s.Tree.IsLeaf(s.ptr) {
+			return
+		}
+	}
+}
+
+func (s *Session) mountainRange() MountainRange {
+	r := MountainRange{
+		Roots: s.Tree.GetRoots(),
+		Rand: rand.Int(),
+	}
+	for _, rt := range r.Roots {
+		r.Sizes = append(r.Sizes, s.Tree.GetSubtreeSize(rt))
+	}
+	return r
+}
+
+func (s *Session) revealTransition(h Hash) StateTransition {
+	fh := s.Tree.GetPrevSibling(h)
+	if fh != zeroHash {
+		return StateTransition{s.Tree.GetData(fh), s.Tree.GetProof(fh), s.Tree.GetData(h)}
+	} else {
+		return StateTransition{nil, nil, s.Tree.GetData(h)}
+	}
+}
+
+func (s *Session) setStartPtr(r MountainRange) StartRoot {
+	roots := s.Tree.GetRoots()
+	theirIdx := 0
+	for idx, root := range roots {
+		if root == r.Roots[idx] {
+			continue
+		} else {
+			s.ptr = roots[idx]
+			theirIdx = idx
+		}
+	}
+	// their subtree must be smaller than us by factor of dim^k
+	for s.Tree.GetSubtreeSize(s.ptr) > r.Sizes[theirIdx] {
+		s.ptr = s.Tree.GetChildren(s.ptr)[0]
+	}
+	return StartRoot{theirIdx}
+}
+

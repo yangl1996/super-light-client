@@ -5,9 +5,17 @@ import (
 	"os"
 	"math/rand"
 	"time"
+	"encoding/gob"
+	"github.com/yangl1996/super-light-client/game"
 )
 
 func main() {
+	gob.Register(game.OpenNext{})
+	gob.Register(game.StartRoot{})
+	gob.Register(game.NextChildren{})
+	gob.Register(game.StateTransition{})
+	gob.Register(game.MountainRange{})
+
 	rand.Seed(time.Now().UnixNano())
 	if len(os.Args) < 2 {
 		fmt.Println("subcommands: verify, serve")
