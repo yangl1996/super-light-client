@@ -13,13 +13,14 @@ type MerkleTree interface {
 	GetChildren(node Hash) []Hash
 	GetProof(node Hash) []Hash
 	IsLeaf(node Hash) bool
-	GetData(node Hash) interface{}
+	GetData(node Hash) []byte
 	GetPrevSibling(node Hash) Hash	// returns 0 if nonexistent
 }
 
 type MerkleHasher interface {
+	HashData(data []byte) Hash
 	ComputeParent(children []Hash) Hash
-	CheckProof(leaf Hash, proof []Hash, roots ...Hash) bool
+	CheckProof(leafData []byte, proof []Hash, roots ...Hash) bool
 }
 
 type SHA256Hasher struct {
@@ -30,6 +31,14 @@ type SHA256Hasher struct {
 func NewSHA256Hasher(dim int) *SHA256Hasher {
 	h := sha256.New()
 	return &SHA256Hasher{h, dim}
+}
+
+func (h *SHA256Hasher) HashData(data []byte) Hash {
+	r := Hash{}
+	h.hasher.Reset()
+	h.hasher.Write(data[:])
+	h.hasher.Sum(r[:0])
+	return r
 }
 
 func (h *SHA256Hasher) ComputeParent(children []Hash) Hash {
@@ -45,7 +54,8 @@ func (h *SHA256Hasher) ComputeParent(children []Hash) Hash {
 	return res
 }
 
-func (m *SHA256Hasher) CheckProof(leaf Hash, proof []Hash, roots ...Hash) bool {
+func (m *SHA256Hasher) CheckProof(leafData []byte, proof []Hash, roots ...Hash) bool {
+	leaf := m.HashData(leafData)
 	for len(proof) > 0 {
 		found := false
 		// look for leaf in the next level
@@ -136,7 +146,7 @@ func (m *InMemoryMerkleTree) IsLeaf(node Hash) bool {
 	}
 }
 
-func (m *InMemoryMerkleTree) GetData(node Hash) interface{} {
+func (m *InMemoryMerkleTree) GetData(node Hash) []byte {
 	return m.nodes[node].(inMemoryMerkleTreeLeaf).data
 }
 
@@ -169,7 +179,7 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 				data: data[i],
 				index: len(m.leaves),
 			}
-			h := sha256.Sum256(data[i])
+			h := m.mh.HashData(data[i])
 			nextHashes = append(nextHashes, h)
 			m.leaves = append(m.leaves, h)
 			m.nodes[h] = l
