@@ -15,6 +15,7 @@ type MerkleTree interface {
 	IsLeaf(node Hash) bool
 	GetData(node Hash) interface{}
 	GetPrevSibling(node Hash) Hash	// returns 0 if nonexistent
+	CheckProof(root Hash, leaf Hash, proof []Hash) bool
 }
 
 type MerkleHasher interface {
@@ -57,6 +58,30 @@ type InMemoryMerkleTree struct {
 	leaves []Hash
 	roots []Hash
 	mh MerkleHasher
+	dim int
+}
+
+func (m *InMemoryMerkleTree) CheckProof(root Hash, leaf Hash, proof []Hash) bool {
+	for len(proof) > 0 {
+		found := false
+		// look for leaf in the next level
+		for _, v := range proof[:m.dim] {
+			if v == leaf {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+		leaf = m.mh.ComputeParent(proof[:m.dim])
+		proof = proof[m.dim:]
+	}
+	if leaf == root {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (m *InMemoryMerkleTree) GetSubtreeSize(node Hash) int {
@@ -126,6 +151,7 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 		mh: mh,
 		nodes: make(map[Hash]interface{}),
 		parent: make(map[Hash]Hash),
+		dim: dim,
 	}
 
 	for len(data)> 0 {
