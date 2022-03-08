@@ -19,11 +19,6 @@ type StateTransition struct {
 	To interface{}		// to contains the current state, and the tx that causes the transition
 }
 
-func NewResponderSession(tree MerkleTree, from Hash) *ResponderSession {
-	s := &ResponderSession{tree, from, make(chan ChallengerMessage), make(chan ResponderMessage)}
-	return s
-}
-
 func (s *ResponderSession) revealTransition(h Hash) StateTransition {
 	fh := s.tree.GetPrevSibling(h)
 	return StateTransition{s.tree.GetData(fh), s.tree.GetProof(fh), s.tree.GetData(h)}
