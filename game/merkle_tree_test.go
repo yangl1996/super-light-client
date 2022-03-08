@@ -24,5 +24,11 @@ func TestMerkleProof(t *testing.T) {
 	if m.CheckProof(m.roots[0], m.leaves[41], p) {
 		t.Error("incorrect proof passes check")
 	}
+}
+
+func TestCreateMerkleTree(t *testing.T) {
+	generateTree(94534, 7)
+	generateTree(0, 2)
+	generateTree(130, 2)
 
 }
