@@ -15,13 +15,19 @@ type NextChildren struct {
 
 type StateTransition struct {
 	From interface{}	// from contains the prev state
-	FromProof interface{}
+	FromProof []Hash
 	To interface{}		// to contains the current state, and the tx that causes the transition
 }
 
+var zeroHash = Hash{}
+
 func (s *ResponderSession) revealTransition(h Hash) StateTransition {
 	fh := s.tree.GetPrevSibling(h)
-	return StateTransition{s.tree.GetData(fh), s.tree.GetProof(fh), s.tree.GetData(h)}
+	if fh != zeroHash {
+		return StateTransition{s.tree.GetData(fh), s.tree.GetProof(fh), s.tree.GetData(h)}
+	} else {
+		return StateTransition{nil, nil, s.tree.GetData(h)}
+	}
 }
 
 func (s *ResponderSession) Run() {

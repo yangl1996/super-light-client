@@ -15,23 +15,27 @@ type MerkleTree interface {
 	IsLeaf(node Hash) bool
 	GetData(node Hash) interface{}
 	GetPrevSibling(node Hash) Hash	// returns 0 if nonexistent
-	CheckProof(root Hash, leaf Hash, proof []Hash) bool
 }
 
 type MerkleHasher interface {
 	ComputeParent(children []Hash) Hash
+	CheckProof(root Hash, leaf Hash, proof []Hash) bool
 }
 
 type SHA256Hasher struct {
 	hasher hash.Hash
+	dim int
 }
 
-func NewSHA256Hasher() *SHA256Hasher {
+func NewSHA256Hasher(dim int) *SHA256Hasher {
 	h := sha256.New()
-	return &SHA256Hasher{h}
+	return &SHA256Hasher{h, dim}
 }
 
 func (h *SHA256Hasher) ComputeParent(children []Hash) Hash {
+	if len(children) != h.dim {
+		panic("incorrect dimension")
+	}
 	h.hasher.Reset()
 	for _, c := range children {
 		h.hasher.Write(c[:])
@@ -39,6 +43,29 @@ func (h *SHA256Hasher) ComputeParent(children []Hash) Hash {
 	var res Hash
 	h.hasher.Sum(res[:0])
 	return res
+}
+
+func (m *SHA256Hasher) CheckProof(root Hash, leaf Hash, proof []Hash) bool {
+	for len(proof) > 0 {
+		found := false
+		// look for leaf in the next level
+		for _, v := range proof[:m.dim] {
+			if v == leaf {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+		leaf = m.ComputeParent(proof[:m.dim])
+		proof = proof[m.dim:]
+	}
+	if leaf == root {
+		return true
+	} else {
+		return false
+	}
 }
 
 type inMemoryMerkleTreeLeaf struct {
@@ -58,30 +85,6 @@ type InMemoryMerkleTree struct {
 	leaves []Hash
 	roots []Hash
 	mh MerkleHasher
-	dim int
-}
-
-func (m *InMemoryMerkleTree) CheckProof(root Hash, leaf Hash, proof []Hash) bool {
-	for len(proof) > 0 {
-		found := false
-		// look for leaf in the next level
-		for _, v := range proof[:m.dim] {
-			if v == leaf {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-		leaf = m.mh.ComputeParent(proof[:m.dim])
-		proof = proof[m.dim:]
-	}
-	if leaf == root {
-		return true
-	} else {
-		return false
-	}
 }
 
 func (m *InMemoryMerkleTree) GetSubtreeSize(node Hash) int {
@@ -146,12 +149,11 @@ func (m *InMemoryMerkleTree) GetPrevSibling(node Hash) Hash {
 }
 
 func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
-	mh := NewSHA256Hasher()
+	mh := NewSHA256Hasher(dim)
 	m := &InMemoryMerkleTree{
 		mh: mh,
 		nodes: make(map[Hash]interface{}),
 		parent: make(map[Hash]Hash),
-		dim: dim,
 	}
 
 	for len(data)> 0 {
