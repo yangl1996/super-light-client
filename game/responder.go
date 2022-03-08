@@ -14,9 +14,9 @@ type NextChildren struct {
 }
 
 type StateTransition struct {
-	From      []byte	// from contains the prev state
+	From      []byte // from contains the prev state
 	FromProof []Hash
-	To        []byte	// to contains the current state, and the tx that causes the transition
+	To        []byte // to contains the current state, and the tx that causes the transition
 }
 
 type MountainRange struct {

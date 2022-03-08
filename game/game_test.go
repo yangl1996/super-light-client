@@ -1,9 +1,9 @@
 package game
 
 import (
-	"testing"
 	"reflect"
 	"sync"
+	"testing"
 )
 
 func TestFindDiff(t *testing.T) {
@@ -28,11 +28,11 @@ func TestFindDiff(t *testing.T) {
 		wg.Done()
 	}()
 	v := Verifier{
-		ToC: v2c,
-		FromC: c2v,
-		ToR: v2p,
-		FromR: p2v,
-		Dim: 5,
+		ToC:          v2c,
+		FromC:        c2v,
+		ToR:          v2p,
+		FromR:        p2v,
+		Dim:          5,
 		MerkleHasher: NewSHA256Hasher(5),
 	}
 	msg := v.Run()
@@ -50,4 +50,3 @@ func TestFindDiff(t *testing.T) {
 
 	wg.Wait()
 }
-

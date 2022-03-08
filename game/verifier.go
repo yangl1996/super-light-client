@@ -1,20 +1,20 @@
 package game
 
 type Verifier struct {
-	ToC chan<- ResponderMessage
+	ToC   chan<- ResponderMessage
 	FromC <-chan ChallengerMessage
 
-	ToR chan<- ChallengerMessage
+	ToR   chan<- ChallengerMessage
 	FromR <-chan ResponderMessage
 
 	Dim int
 	MerkleHasher
-	responderPtr Hash
-	responderSize int
 }
 
 func (v *Verifier) Run() StateTransition {
-	diffFirst := true	// if the expected diff is the first element
+	var responderPtr Hash
+	var responderSize int
+	diffFirst := true // if the expected diff is the first element
 	// wait for responder to send mountain range
 	mr := (<-v.FromR).(MountainRange)
 	// TODO: check the size of the subtrees
@@ -22,22 +22,22 @@ func (v *Verifier) Run() StateTransition {
 
 	// wait for challenger to set initial pointer
 	sr := (<-v.FromC).(StartRoot)
-	v.responderPtr = mr.Roots[sr.Index]
-	v.responderSize = mr.Sizes[sr.Index]
+	responderPtr = mr.Roots[sr.Index]
+	responderSize = mr.Sizes[sr.Index]
 	v.ToR <- sr
 	if sr.Index != 0 {
 		diffFirst = false
 	}
 
-	for v.responderSize > 1 {
+	for responderSize > 1 {
 		nc := (<-v.FromR).(NextChildren)
-		if v.MerkleHasher.ComputeParent(nc.Hashes) != v.responderPtr {
+		if v.MerkleHasher.ComputeParent(nc.Hashes) != responderPtr {
 			panic("incorrect children pointers")
 		}
 		v.ToC <- nc
 		on := (<-v.FromC).(OpenNext)
-		v.responderSize /= v.Dim
-		v.responderPtr = nc.Hashes[on.Index]
+		responderSize /= v.Dim
+		responderPtr = nc.Hashes[on.Index]
 		v.ToR <- on
 		if on.Index != 0 {
 			diffFirst = false
@@ -46,7 +46,7 @@ func (v *Verifier) Run() StateTransition {
 
 	st := (<-v.FromR).(StateTransition)
 	// TODO: we do not verify ordering. An index must go with the data in a real app
-	if v.MerkleHasher.HashData(st.To) != v.responderPtr {
+	if v.MerkleHasher.HashData(st.To) != responderPtr {
 		panic("incorrect to data")
 	}
 	if !diffFirst {

@@ -14,7 +14,7 @@ type MerkleTree interface {
 	GetProof(node Hash) []Hash
 	IsLeaf(node Hash) bool
 	GetData(node Hash) []byte
-	GetPrevSibling(node Hash) Hash	// returns 0 if nonexistent
+	GetPrevSibling(node Hash) Hash // returns 0 if nonexistent
 }
 
 type MerkleHasher interface {
@@ -25,7 +25,7 @@ type MerkleHasher interface {
 
 type SHA256Hasher struct {
 	hasher hash.Hash
-	dim int
+	dim    int
 }
 
 func NewSHA256Hasher(dim int) *SHA256Hasher {
@@ -80,22 +80,22 @@ func (m *SHA256Hasher) CheckProof(leafData []byte, proof []Hash, roots ...Hash) 
 }
 
 type inMemoryMerkleTreeLeaf struct {
-	data []byte
+	data  []byte
 	index int
 }
 
 type inMemoryMerkleTreeInternal struct {
-	children []Hash
+	children    []Hash
 	subtreeSize int
 }
 
 // a read-only merkle tree stored in the memory
 type InMemoryMerkleTree struct {
-	nodes map[Hash]interface{}
+	nodes  map[Hash]interface{}
 	parent map[Hash]Hash
 	leaves []Hash
-	roots []Hash
-	mh MerkleHasher
+	roots  []Hash
+	mh     MerkleHasher
 }
 
 func (m *InMemoryMerkleTree) GetSubtreeSize(node Hash) int {
@@ -162,21 +162,21 @@ func (m *InMemoryMerkleTree) GetPrevSibling(node Hash) Hash {
 func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 	mh := NewSHA256Hasher(dim)
 	m := &InMemoryMerkleTree{
-		mh: mh,
-		nodes: make(map[Hash]interface{}),
+		mh:     mh,
+		nodes:  make(map[Hash]interface{}),
 		parent: make(map[Hash]Hash),
 	}
 
-	for len(data)> 0 {
+	for len(data) > 0 {
 		// compute the size of the next tree
 		size := 1
-		for size * dim <= len(data) {
+		for size*dim <= len(data) {
 			size = size * dim
 		}
 		var nextHashes []Hash
 		for i := 0; i < size; i++ {
 			l := inMemoryMerkleTreeLeaf{
-				data: data[i],
+				data:  data[i],
 				index: len(m.leaves),
 			}
 			h := m.mh.HashData(data[i])
@@ -185,15 +185,15 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 			m.nodes[h] = l
 		}
 		for len(nextHashes) > 1 {
-			var hashes []Hash	// it is important that we allocate a new array because
-								// internal nodes are referencing into nextHashes
+			var hashes []Hash // it is important that we allocate a new array because
+			// internal nodes are referencing into nextHashes
 			nb := len(nextHashes) / dim
 			for i := 0; i < nb; i++ {
 				n := inMemoryMerkleTreeInternal{
-					children: nextHashes[i*dim:i*dim+dim],
-					subtreeSize: size/nb,
+					children:    nextHashes[i*dim : i*dim+dim],
+					subtreeSize: size / nb,
 				}
-				h := m.mh.ComputeParent(nextHashes[i*dim:i*dim+dim])
+				h := m.mh.ComputeParent(nextHashes[i*dim : i*dim+dim])
 				m.nodes[h] = n
 				hashes = append(hashes, h)
 				for j := 0; j < dim; j++ {

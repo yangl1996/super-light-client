@@ -1,8 +1,8 @@
 package game
 
 import (
-	"testing"
 	"encoding/binary"
+	"testing"
 )
 
 func generateTree(sz, dim int, diff ...int) *InMemoryMerkleTree {
