@@ -8,16 +8,16 @@ import (
 )
 
 func TestFindDiff(t *testing.T) {
-	tree1 := generateTree(125, 5)
-	tree2 := generateTree(125, 5, 96)
+	tree1 := generateTree(273, 5)
+	tree2 := generateTree(273, 5, 213)
 
 	c2v := make(chan ChallengerMessage, 100)
 	v2p := make(chan ChallengerMessage, 100)
 	p2v := make(chan ResponderMessage, 100)
 	v2c := make(chan ResponderMessage, 100)
 
-	c := &ChallengerSession{tree1, tree1.roots[0], v2c, c2v}
-	p := &ResponderSession{tree2, tree2.roots[0], v2p, p2v}
+	c := &ChallengerSession{tree1, Hash{}, v2c, c2v}
+	p := &ResponderSession{tree2, Hash{}, v2p, p2v}
 	wg := &sync.WaitGroup{}
 	wg.Add(4)
 	go func() {
@@ -43,20 +43,25 @@ func TestFindDiff(t *testing.T) {
 					t.Error("responder sends message after game finished")
 				}
 				v2c <- m
+			case MountainRange:
+				if stop {
+					t.Error("responder sends message after game finished")
+				}
+				v2c <- m
 			case StateTransition:
 				stop = true
 				diffData := msg.To.([]byte)
-				diffData2 := tree2.nodes[tree2.leaves[96]].(inMemoryMerkleTreeLeaf).data
+				diffData2 := tree2.nodes[tree2.leaves[213]].(inMemoryMerkleTreeLeaf).data
 				if !reflect.DeepEqual(diffData, diffData2) {
 					t.Error("responder sends incorrect leaf data")
 				}
 				diffPrev := msg.From.([]byte)
-				diffPrev2 := tree2.nodes[tree2.leaves[95]].(inMemoryMerkleTreeLeaf).data
+				diffPrev2 := tree2.nodes[tree2.leaves[212]].(inMemoryMerkleTreeLeaf).data
 				if !reflect.DeepEqual(diffPrev, diffPrev2) {
 					t.Error("responder sends incorrect leaf prev data")
 				}
 				checker := NewSHA256Hasher(5)
-				if !checker.CheckProof(tree2.roots[0], sha256.Sum256(diffPrev[:]), msg.FromProof) {
+				if !checker.CheckProof(sha256.Sum256(diffPrev[:]), msg.FromProof, tree2.roots...) {
 					t.Error("responder sends incorrect proof for leaf prev")
 				}
 			default:

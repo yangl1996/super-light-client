@@ -19,7 +19,7 @@ type MerkleTree interface {
 
 type MerkleHasher interface {
 	ComputeParent(children []Hash) Hash
-	CheckProof(root Hash, leaf Hash, proof []Hash) bool
+	CheckProof(leaf Hash, proof []Hash, roots ...Hash) bool
 }
 
 type SHA256Hasher struct {
@@ -45,7 +45,7 @@ func (h *SHA256Hasher) ComputeParent(children []Hash) Hash {
 	return res
 }
 
-func (m *SHA256Hasher) CheckProof(root Hash, leaf Hash, proof []Hash) bool {
+func (m *SHA256Hasher) CheckProof(leaf Hash, proof []Hash, roots ...Hash) bool {
 	for len(proof) > 0 {
 		found := false
 		// look for leaf in the next level
@@ -61,11 +61,12 @@ func (m *SHA256Hasher) CheckProof(root Hash, leaf Hash, proof []Hash) bool {
 		leaf = m.ComputeParent(proof[:m.dim])
 		proof = proof[m.dim:]
 	}
-	if leaf == root {
-		return true
-	} else {
-		return false
+	for _, r := range roots {
+		if leaf == r {
+			return true
+		}
 	}
+	return false
 }
 
 type inMemoryMerkleTreeLeaf struct {

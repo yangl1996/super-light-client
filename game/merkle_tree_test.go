@@ -24,11 +24,11 @@ func TestMerkleProof(t *testing.T) {
 	m := generateTree(125, 5)
 	p := m.GetProof(m.leaves[40])
 	checker := NewSHA256Hasher(5)
-	if !checker.CheckProof(m.roots[0], m.leaves[40], p) {
+	if !checker.CheckProof(m.leaves[40], p, m.roots[0]) {
 		t.Error("proof does not pass check")
 	}
 	m = generateTree(125, 5, 40)
-	if checker.CheckProof(m.roots[0], m.leaves[41], p) {
+	if checker.CheckProof(m.leaves[41], p, m.roots[0]) {
 		t.Error("incorrect proof passes check")
 	}
 }

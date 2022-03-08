@@ -21,7 +21,7 @@ type StateTransition struct {
 
 type MountainRange struct {
 	Roots []Hash
-	Size  int
+	Sizes []int
 }
 
 var zeroHash = Hash{}
@@ -31,7 +31,7 @@ func (s *ResponderSession) mountainRange() MountainRange {
 		Roots: s.Tree.GetRoots(),
 	}
 	for _, rt := range r.Roots {
-		r.Size += s.Tree.GetSubtreeSize(rt)
+		r.Sizes = append(r.Sizes, s.Tree.GetSubtreeSize(rt))
 	}
 	return r
 }
@@ -47,6 +47,11 @@ func (s *ResponderSession) revealTransition(h Hash) StateTransition {
 
 func (s *ResponderSession) Run() {
 	defer close(s.O)
+	s.O <- s.mountainRange()
+	msg := <-s.I
+	sr := msg.(StartRoot)
+	s.ptr = s.Tree.GetRoots()[sr.Index]
+
 	if s.Tree.IsLeaf(s.ptr) {
 		s.O <- s.revealTransition(s.ptr)
 		return

@@ -13,8 +13,36 @@ type OpenNext struct {
 	Index int
 }
 
+type StartRoot struct {
+	Index int
+}
+
+func (s *ChallengerSession) setStartPtr(r MountainRange) StartRoot {
+	roots := s.Tree.GetRoots()
+	theirIdx := 0
+	for idx, root := range roots {
+		if root == r.Roots[idx] {
+			continue
+		} else {
+			s.ptr = roots[idx]
+			theirIdx = idx
+		}
+	}
+	// their subtree must be smaller than us by factor of dim^k
+	for s.Tree.GetSubtreeSize(s.ptr) > r.Sizes[theirIdx] {
+		s.ptr = s.Tree.GetChildren(s.ptr)[0]
+	}
+	return StartRoot{theirIdx}
+}
+
 func (s *ChallengerSession) Run() {
 	defer close(s.O)
+	// first wait for mountain range
+	msg := <-s.I
+	mr := msg.(MountainRange)
+	rt := s.setStartPtr(mr)
+	s.O <- rt
+
 	for resp := range s.I {
 		// find the diff in the next level
 		if _, correct := resp.(NextChildren); !correct {
