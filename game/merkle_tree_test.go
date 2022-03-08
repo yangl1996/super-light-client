@@ -5,11 +5,16 @@ import (
 	"encoding/binary"
 )
 
-func generateTree(sz, dim int) *InMemoryMerkleTree {
+func generateTree(sz, dim int, diff ...int) *InMemoryMerkleTree {
+	nextDiffIdx := 0
 	testData := [][]byte{}
 	for i := 0; i < sz; i++ {
 		bs := make([]byte, 8)
 		binary.LittleEndian.PutUint64(bs, uint64(i))
+		if nextDiffIdx < len(diff) && diff[nextDiffIdx] == i {
+			nextDiffIdx += 1
+			bs = append(bs, []byte("diff")...)
+		}
 		testData = append(testData, bs)
 	}
 	return NewInMemoryMerkleTree(testData, dim)
@@ -21,6 +26,7 @@ func TestMerkleProof(t *testing.T) {
 	if !m.CheckProof(m.roots[0], m.leaves[40], p) {
 		t.Error("proof does not pass check")
 	}
+	m = generateTree(125, 5, 40)
 	if m.CheckProof(m.roots[0], m.leaves[41], p) {
 		t.Error("incorrect proof passes check")
 	}
