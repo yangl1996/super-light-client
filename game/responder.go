@@ -3,6 +3,8 @@ package game
 type ResponderSession struct {
 	tree MerkleTree
 	ptr Hash
+	I <-chan ChallengerMessage
+	O chan<- ResponderMessage
 }
 
 type ResponderMessage interface{}
@@ -12,9 +14,14 @@ type NextChildren struct {
 }
 
 type StateTransition struct {
-	From interface{}
+	From interface{}	// from contains the prev state
 	FromProof interface{}
-	To interface{}
+	To interface{}		// to contains the current state, and the tx that causes the transition
+}
+
+func NewResponderSession(tree MerkleTree, from Hash) *ResponderSession {
+	s := &ResponderSession{tree, from, make(chan ChallengerMessage), make(chan ResponderMessage)}
+	return s
 }
 
 func (s *ResponderSession) revealTransition(h Hash) StateTransition {
@@ -22,25 +29,26 @@ func (s *ResponderSession) revealTransition(h Hash) StateTransition {
 	return StateTransition{s.tree.GetData(fh), s.tree.GetProof(fh), s.tree.GetData(h)}
 }
 
-func NewResponderSession(tree MerkleTree, from Hash) (*ResponderSession, ResponderMessage) {
-	s := &ResponderSession{tree, from}
+func (s *ResponderSession) Run() {
+	defer close(s.O)
 	if s.tree.IsLeaf(s.ptr) {
-		return s, s.revealTransition(s.ptr)
+		s.O <- s.revealTransition(s.ptr)
+		return
 	} else {
-		return s, NextChildren{s.tree.GetChildren(from)}
+		s.O <- NextChildren{s.tree.GetChildren(s.ptr)}
+	}
+	for req := range s.I {
+		if _, correct := req.(OpenNext); !correct {
+			panic("unexpected challenge type")
+		}
+		idx := req.(OpenNext).Index
+		s.ptr = s.tree.GetChildren(s.ptr)[idx]
+		if s.tree.IsLeaf(s.ptr) {
+			s.O <- s.revealTransition(s.ptr)
+			return
+		} else {
+			s.O <- NextChildren{s.tree.GetChildren(s.ptr)}
+		}
 	}
 }
 
-func (s *ResponderSession) Downward(req ChallengerMessage) ResponderMessage {
-	if _, correct := req.(OpenNext); !correct {
-		panic("unexpected challenge type")
-	}
-
-	idx := req.(OpenNext).Index
-	s.ptr = s.tree.GetChildren(s.ptr)[idx]
-	if s.tree.IsLeaf(s.ptr) {
-		return s.revealTransition(s.ptr)
-	} else {
-		return NextChildren{s.tree.GetChildren(s.ptr)}
-	}
-}
