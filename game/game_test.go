@@ -8,7 +8,7 @@ import (
 
 func TestFindDiff(t *testing.T) {
 	tree1 := generateTree(273, 5)
-	tree2 := generateTree(273, 5, 213)
+	tree2 := generateTree(299, 5, 213)
 
 	c2v := make(chan Message, 100)
 	v2p := make(chan Message, 100)
@@ -36,12 +36,12 @@ func TestFindDiff(t *testing.T) {
 	msg := v.Run()
 
 	diffData := msg.To
-	diffData2 := tree2.nodes[tree2.leaves[213]].(inMemoryMerkleTreeLeaf).data
+	diffData2 := tree1.nodes[tree1.leaves[213]].(inMemoryMerkleTreeLeaf).data
 	if !reflect.DeepEqual(diffData, diffData2) {
 		t.Error("responder sends incorrect leaf data")
 	}
 	diffPrev := msg.From
-	diffPrev2 := tree2.nodes[tree2.leaves[212]].(inMemoryMerkleTreeLeaf).data
+	diffPrev2 := tree1.nodes[tree1.leaves[212]].(inMemoryMerkleTreeLeaf).data
 	if !reflect.DeepEqual(diffPrev, diffPrev2) {
 		t.Error("responder sends incorrect leaf prev data")
 	}

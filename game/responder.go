@@ -160,6 +160,7 @@ func (s *Session) setStartPtr(r MountainRange) StartRoot {
 		} else {
 			s.ptr = roots[idx]
 			theirIdx = idx
+			break
 		}
 	}
 	// their subtree must be smaller than us by factor of dim^k
