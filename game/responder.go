@@ -60,19 +60,19 @@ func DecideChallenger(m ...MountainRange) int {
 func (s *Session) Run() {
 	mr := s.mountainRange()
 	s.O <- mr
-	peerMr := (<-s.I).(MountainRange)
-	c := DecideChallenger(mr, peerMr)
-	if c == 0 {
-		s.runChallenger(peerMr)
-	} else {
-		s.runResponder()
+	msg := <-s.I
+	switch m := msg.(type) {
+	case MountainRange:
+		s.runChallenger(m)
+	case StartRoot:
+		s.runResponder(m)
+	default:
+		panic("unexpected message type")
 	}
 }
 
-func (s *Session) runResponder() {
+func (s *Session) runResponder(sr StartRoot) {
 	defer close(s.O)
-	msg := <-s.I
-	sr := msg.(StartRoot)
 	s.ptr = s.Tree.GetRoots()[sr.Index]
 
 	if s.Tree.IsLeaf(s.ptr) {

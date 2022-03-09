@@ -1,5 +1,6 @@
 package game
 
+// Verifier implements the light client.
 type Verifier struct {
 	To []chan<- Message
 	From []<-chan Message
@@ -8,58 +9,116 @@ type Verifier struct {
 	MerkleHasher
 }
 
-func (v *Verifier) Run() StateTransition {
+// Match runs a match between a challenger and a prover. It takes the indices of the
+// two parties, and the mountain range reported by the prover, which should have a
+// shorter ledger than the challenger. It returns the index of the winner.
+func (v *Verifier) Match(cidx, pidx int, pmr MountainRange) int {
+	var diffIdx int
 	var responderPtr Hash
 	var responderSize int
-	diffFirst := true // if the expected diff is the first element
 
-	// wait for both to send mountain range
-	// TODO: check the size of the subtrees
-	mr := make([]MountainRange, 2)
-	mr[0] = (<-v.From[0]).(MountainRange)
-	mr[1] = (<-v.From[1]).(MountainRange)
-	v.To[0] <- mr[1]
-	v.To[1] <- mr[0]
-	cidx := DecideChallenger(mr...)
-	ridx := 1-cidx;
-
-	// wait for challenger to set initial pointer
-	sr := (<-v.From[cidx]).(StartRoot)
-	responderPtr = mr[ridx].Roots[sr.Index]
-	responderSize = mr[ridx].Sizes[sr.Index]
-	v.To[ridx] <- sr
-	if sr.Index != 0 {
-		diffFirst = false
+	// send the mountain range to the challenger, and wait for it to pick the start point
+	// for the game
+	v.To[cidx] <- pmr
+	sr, ok := (<-v.From[cidx]).(StartRoot)
+	if !ok {
+		return pidx
 	}
+	v.To[pidx] <- sr
+	responderPtr = pmr.Roots[sr.Index]
+	responderSize = pmr.Sizes[sr.Index]
 
+	// run the bisection game to find the first disargeement
 	for responderSize > 1 {
-		nc := (<-v.From[ridx]).(NextChildren)
+		// wait for the opening from the responder
+		nc, ok := (<-v.From[pidx]).(NextChildren)
+		if !ok {
+			return cidx
+		}
 		if v.MerkleHasher.ComputeParent(nc.Hashes) != responderPtr {
-			panic("incorrect children pointers")
+			// responder loses because the opening does not match the parent hash
+			return cidx
 		}
 		v.To[cidx] <- nc
-		on := (<-v.From[cidx]).(OpenNext)
+		// wait for the index to open next
+		on, ok := (<-v.From[cidx]).(OpenNext)
+		if !ok {
+			return pidx
+		}
+		v.To[pidx] <- on
 		responderSize /= v.Dim
 		responderPtr = nc.Hashes[on.Index]
-		v.To[ridx] <- on
-		if on.Index != 0 {
-			diffFirst = false
+		diffIdx = diffIdx * v.Dim + on.Index
+	}
+	// finish computing the diff index by adding the sizes the subtrees that are skipped
+	{
+		i := 0
+		for i < sr.Index {
+			diffIdx += pmr.Sizes[i]
+			i += 1
 		}
 	}
 
-	st := (<-v.From[ridx]).(StateTransition)
-	// TODO: we do not verify ordering. An index must go with the data in a real app
-	if v.MerkleHasher.HashData(st.To) != responderPtr {
-		panic("incorrect to data")
+	// wait for the responder to open the leaf
+	st, ok := (<-v.From[pidx]).(StateTransition)
+	if !ok {
+		return cidx
 	}
-	if !diffFirst {
-		if !v.MerkleHasher.CheckProof(st.From, st.FromProof, mr[ridx].Roots...) {
-			panic("incorrect from data")
+	// TODO: verify if st.To has index diffIdx and st.From has index diffIdx-1
+	if v.MerkleHasher.HashData(st.To) != responderPtr {
+		// incorrect hash of the opened leaf
+		return cidx
+	}
+	if diffIdx != 0 {
+		if !v.MerkleHasher.CheckProof(st.From, st.FromProof, pmr.Roots[sr.Index]) {
+			// incorrect proof of the previous node
+			return cidx
 		}
 	} else {
 		if len(st.FromProof) != 0 || st.From != nil {
-			panic("nonempty from node when diff at 0")
+			// nonempty prev node when the diff is at index 0
+			return cidx
 		}
 	}
-	return st
+	// TODO: verify the state transition
+	return pidx
+}
+
+func (v *Verifier) Run() MountainRange {
+	if len(v.To) != len(v.From) {
+		panic("verifier launched with different incoming channels and outgoing channels")
+	}
+
+	// wait for everyone to send the mountain range
+	// TODO: timeout
+	mr := make([]MountainRange, len(v.From))
+	for i := range mr {
+		mr[i] = (<-v.From[i]).(MountainRange)
+		if len(mr[i].Sizes) != len(mr[i].Roots) {
+			panic("different length of root and size array")
+		}
+		if len(mr[i].Sizes) > 1 {
+			for j := 1; j < len(mr[i].Sizes); j++ {
+				if mr[i].Sizes[j] > mr[i].Sizes[j-1] {
+					panic("increasing size in size array")
+				}
+				if mr[i].Sizes[j-1] % mr[i].Sizes[j] != 0 {
+					panic("noninteger size scale")
+				}
+				scale := mr[i].Sizes[j-1] / mr[i].Sizes[j]
+				for scale != 1 {
+					if scale % v.Dim != 0 {
+						panic("scale not exponential of dimension")
+					}
+					scale = scale / v.Dim
+				}
+			}
+		}
+	}
+
+	// TODO: currently we do not have the tournament
+	cidx := DecideChallenger(mr...)
+	ridx := 1-cidx;
+	winner := v.Match(cidx, ridx, mr[ridx])
+	return mr[winner]
 }

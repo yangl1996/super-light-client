@@ -33,17 +33,10 @@ func TestFindDiff(t *testing.T) {
 		Dim:          5,
 		MerkleHasher: NewSHA256Hasher(5),
 	}
-	msg := v.Run()
-
-	diffData := msg.To
-	diffData2 := tree1.nodes[tree1.leaves[213]].(inMemoryMerkleTreeLeaf).data
-	if !reflect.DeepEqual(diffData, diffData2) {
-		t.Error("responder sends incorrect leaf data")
-	}
-	diffPrev := msg.From
-	diffPrev2 := tree1.nodes[tree1.leaves[212]].(inMemoryMerkleTreeLeaf).data
-	if !reflect.DeepEqual(diffPrev, diffPrev2) {
-		t.Error("responder sends incorrect leaf prev data")
+	mr := v.Run()
+	if !reflect.DeepEqual(mr, c.mountainRange()) {
+		// player 1 should win, because we do not check state transition for now, and it plays by the rule all the time
+		t.Error("incorrect winner")
 	}
 
 	wg.Wait()
