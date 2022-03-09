@@ -1,9 +1,5 @@
 package game
 
-import (
-	"math/rand"
-)
-
 var zeroHash = Hash{}
 
 type Message interface{}
@@ -29,7 +25,6 @@ type StateTransition struct {
 type MountainRange struct {
 	Roots []Hash
 	Sizes []int
-	Rand int
 }
 
 type Session struct {
@@ -42,16 +37,14 @@ type Session struct {
 func DecideChallenger(m ...MountainRange) int {
 	winner := 0
 	winnerSize := 0
-	winnerRng := 0
 	for i, mr := range m {
 		size := 0
 		for _, sz := range mr.Sizes {
 			size += sz
 		}
-		if (size > winnerSize) || (size == winnerSize && mr.Rand > winnerRng) {
+		if size > winnerSize {
 			winner = i
 			winnerSize = size
-			winnerRng = mr.Rand
 		}
 	}
 	return winner
@@ -134,7 +127,6 @@ func (s *Session) runChallenger(mr MountainRange) {
 func (s *Session) mountainRange() MountainRange {
 	r := MountainRange{
 		Roots: s.Tree.GetRoots(),
-		Rand: rand.Int(),
 	}
 	for _, rt := range r.Roots {
 		r.Sizes = append(r.Sizes, s.Tree.GetSubtreeSize(rt))
