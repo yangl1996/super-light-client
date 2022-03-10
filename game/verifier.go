@@ -50,6 +50,12 @@ func (v *Verifier) Match(cidx, pidx int, pmr MountainRange) int {
 		responderPtr = nc.Hashes[on.Index]
 		diffIdx = diffIdx * v.Dim + on.Index
 	}
+	var diffPrevTreeIdx int	// the tree root idx of the leaf prev to the diff point (st.From below)
+	if diffIdx == 0 {
+		diffPrevTreeIdx = sr.Index-1
+	} else {
+		diffPrevTreeIdx = sr.Index
+	}
 	// finish computing the diff index by adding the sizes the subtrees that are skipped
 	{
 		i := 0
@@ -70,7 +76,7 @@ func (v *Verifier) Match(cidx, pidx int, pmr MountainRange) int {
 		return cidx
 	}
 	if diffIdx != 0 {
-		if !v.MerkleHasher.CheckProof(st.From, st.FromProof, pmr.Roots[sr.Index]) {
+		if !v.MerkleHasher.CheckProof(st.From, st.FromProof, pmr.Roots[diffPrevTreeIdx]) {
 			// incorrect proof of the previous node
 			return cidx
 		}

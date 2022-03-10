@@ -8,7 +8,7 @@ import (
 
 func TestFindDiff(t *testing.T) {
 	tree1 := generateTree(273, 5)
-	tree2 := generateTree(299, 5, 213)
+	tree2 := generateTree(299, 5, 271)
 
 	p1v := make(chan Message, 100)
 	p2v := make(chan Message, 100)

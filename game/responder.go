@@ -91,9 +91,15 @@ func (s *Session) runResponder(sr StartRoot) {
 
 func (s *Session) runChallenger(mr MountainRange) {
 	defer close(s.O)
-	rt := s.setStartPtr(mr)
+	rt, needGame := s.setStartPtr(mr)
+	if !needGame {
+		panic("do not need a game")
+	}
 	s.O <- rt
 
+	if s.Tree.IsLeaf(s.ptr) {
+		return
+	}
 	for resp := range s.I {
 		// find the diff in the next level
 		if _, correct := resp.(NextChildren); !correct {
@@ -143,22 +149,40 @@ func (s *Session) revealTransition(h Hash) StateTransition {
 	}
 }
 
-func (s *Session) setStartPtr(r MountainRange) StartRoot {
+func (s *Session) setStartPtr(r MountainRange) (StartRoot, bool) {
 	roots := s.Tree.GetRoots()
 	theirIdx := 0
-	for idx, root := range roots {
-		if root == r.Roots[idx] {
-			continue
+	// look for the first root that is different
+	for theirIdx, s.ptr = range roots {
+		// compare subtree size
+		if s.Tree.GetSubtreeSize(s.ptr) == r.Sizes[theirIdx] {
+			// if subtree size is the same, then the root must be the same or we need
+			// to look into it
+			if s.ptr != r.Roots[theirIdx] {
+				return StartRoot{theirIdx}, true
+			}
 		} else {
-			s.ptr = roots[idx]
-			theirIdx = idx
+			// we found the first subtree with a different size
 			break
 		}
 	}
-	// their subtree must be smaller than us by factor of dim^k
-	for s.Tree.GetSubtreeSize(s.ptr) > r.Sizes[theirIdx] {
-		s.ptr = s.Tree.GetChildren(s.ptr)[0]
+	// scan until the end of peer's roots
+	childIdx := 0
+	for theirIdx < len(r.Roots) {
+		// go down until our children has the same size as peer's subtree
+		for s.Tree.GetSubtreeSize(s.Tree.GetChildren(s.ptr)[childIdx]) > r.Sizes[theirIdx] {
+			s.ptr = s.Tree.GetChildren(s.ptr)[childIdx]
+			childIdx = 0
+		}
+		if s.Tree.GetChildren(s.ptr)[childIdx] == r.Roots[theirIdx] {
+			// go to sibling
+			childIdx += 1
+		} else {
+			s.ptr = s.Tree.GetChildren(s.ptr)[childIdx]
+			return StartRoot{theirIdx}, true
+		}
+		theirIdx += 1
 	}
-	return StartRoot{theirIdx}
+	return StartRoot{}, false	// no need for bisection game
 }
 
