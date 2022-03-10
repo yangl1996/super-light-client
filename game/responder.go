@@ -183,6 +183,5 @@ func (s *Session) setStartPtr(r MountainRange) (StartRoot, bool) {
 		}
 		theirIdx += 1
 	}
-	return StartRoot{}, false	// no need for bisection game
+	return StartRoot{}, false // no need for bisection game
 }
-

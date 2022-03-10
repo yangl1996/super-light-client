@@ -2,7 +2,7 @@ package game
 
 // Verifier implements the light client.
 type Verifier struct {
-	To []chan<- Message
+	To   []chan<- Message
 	From []<-chan Message
 
 	Dim int
@@ -48,11 +48,11 @@ func (v *Verifier) Match(cidx, pidx int, pmr MountainRange) int {
 		v.To[pidx] <- on
 		responderSize /= v.Dim
 		responderPtr = nc.Hashes[on.Index]
-		diffIdx = diffIdx * v.Dim + on.Index
+		diffIdx = diffIdx*v.Dim + on.Index
 	}
-	var diffPrevTreeIdx int	// the tree root idx of the leaf prev to the diff point (st.From below)
+	var diffPrevTreeIdx int // the tree root idx of the leaf prev to the diff point (st.From below)
 	if diffIdx == 0 {
-		diffPrevTreeIdx = sr.Index-1
+		diffPrevTreeIdx = sr.Index - 1
 	} else {
 		diffPrevTreeIdx = sr.Index
 	}
@@ -108,12 +108,12 @@ func (v *Verifier) Run() MountainRange {
 				if mr[i].Sizes[j] > mr[i].Sizes[j-1] {
 					panic("increasing size in size array")
 				}
-				if mr[i].Sizes[j-1] % mr[i].Sizes[j] != 0 {
+				if mr[i].Sizes[j-1]%mr[i].Sizes[j] != 0 {
 					panic("noninteger size scale")
 				}
 				scale := mr[i].Sizes[j-1] / mr[i].Sizes[j]
 				for scale != 1 {
-					if scale % v.Dim != 0 {
+					if scale%v.Dim != 0 {
 						panic("scale not exponential of dimension")
 					}
 					scale = scale / v.Dim
@@ -124,7 +124,7 @@ func (v *Verifier) Run() MountainRange {
 
 	// TODO: currently we do not have the tournament
 	cidx := DecideChallenger(mr...)
-	ridx := 1-cidx;
+	ridx := 1 - cidx
 	winner := v.Match(cidx, ridx, mr[ridx])
 	return mr[winner]
 }
