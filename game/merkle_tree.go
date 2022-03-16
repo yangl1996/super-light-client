@@ -87,9 +87,45 @@ type kvMerkleTreeLeaf struct {
 	index int
 }
 
+func (k *kvMerkleTreeLeaf) UnmarshalBinary(data []byte) error {
+	k.index = int(binary.LittleEndian.Uint64(data[0:8]))
+	n := int(binary.LittleEndian.Uint64(data[8:16]))
+	k.data = make([]byte, n)
+	copy(k.data[:], data[16:16+n])
+	return nil
+}
+
+func (k *kvMerkleTreeLeaf) MarshalBinary() ([]byte, error) {
+	res := make([]byte, 16)
+	binary.LittleEndian.PutUint64(res[0:8], uint64(k.index))
+	binary.LittleEndian.PutUint64(res[8:16], uint64(len(k.data)))
+	res = append(res, k.data[:]...)
+	return res, nil
+}
+
 type kvMerkleTreeInternal struct {
 	children    []Hash
 	subtreeSize int
+}
+
+func (k *kvMerkleTreeInternal) UnmarshalBinary(data []byte) error {
+	k.subtreeSize = int(binary.LittleEndian.Uint64(data[0:8]))
+	n := int(binary.LittleEndian.Uint64(data[8:16]))
+	k.children = make([]Hash, n)
+	for i := 0; i < n; i++ {
+		copy(k.children[i][:], data[16+32*i:16+32*i+32])
+	}
+	return nil
+}
+
+func (k *kvMerkleTreeInternal) MarshalBinary() ([]byte, error) {
+	res := make([]byte, 16)
+	binary.LittleEndian.PutUint64(res[0:8], uint64(k.subtreeSize))
+	binary.LittleEndian.PutUint64(res[8:16], uint64(len(k.children)))
+	for _, v := range k.children {
+		res = append(res, v[:]...)
+	}
+	return res, nil
 }
 
 type kvMerkleTreeStorage interface {
@@ -246,18 +282,18 @@ func (s *PogrebMerkleTreeStorage) getRoot(idx int) Hash {
 }
 
 func (s *PogrebMerkleTreeStorage) getNumRoots() int {
-	return s.readUint64(numberOfRootPrefix)
+	return int(s.readUint64(numberOfRootPrefix))
 }
 
 func (s *PogrebMerkleTreeStorage) appendLeaf(h Hash, l kvMerkleTreeLeaf) {
 	idx := s.readUint64(numberOfLeafPrefix)
-	s.writeObjectByHash(leafNodePrefix, h, l)
+	s.writeObjectByHash(leafNodePrefix, h, &l)
 	s.writeHashByIndex(leafHashPrefix, idx, h)
 	s.writeUint64(numberOfLeafPrefix, idx+1)
 	return
 }
 func (s *PogrebMerkleTreeStorage) storeInternal(h Hash, n kvMerkleTreeInternal) {
-	s.writeObjectByHash(internalNodePrefix, h, n)
+	s.writeObjectByHash(internalNodePrefix, h, &n)
 	return
 }
 
