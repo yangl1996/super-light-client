@@ -18,7 +18,7 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 	if len(os.Args) < 2 {
-		fmt.Println("subcommands: verify, serve")
+		fmt.Println("subcommands: verify, serve, build")
 		os.Exit(1)
 	}
 	switch os.Args[1] {
@@ -26,5 +26,10 @@ func main() {
 		verify(os.Args[2:])
 	case "serve":
 		serve(os.Args[2:])
+	case "build":
+		buildTree(os.Args[2:])
+	default:
+		fmt.Println("unknown subcommand")
+		os.Exit(1)
 	}
 }

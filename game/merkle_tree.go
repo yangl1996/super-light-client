@@ -128,7 +128,7 @@ func (k *kvMerkleTreeInternal) MarshalBinary() ([]byte, error) {
 	return res, nil
 }
 
-type kvMerkleTreeStorage interface {
+type KVMerkleTreeStorage interface {
 	getLeaf(h Hash) (kvMerkleTreeLeaf, bool)
 	getLeafHashByIndex(idx int) Hash
 	getInternal(h Hash) (kvMerkleTreeInternal, bool)
@@ -141,6 +141,11 @@ type kvMerkleTreeStorage interface {
 	appendRoot(h Hash)
 }
 
+type DiskBackedMerkleTreeStorage interface {
+	Commit()
+	Close()
+}
+
 type PogrebMerkleTreeStorage struct {
 	db *pogreb.DB
 }
@@ -151,6 +156,15 @@ func NewPogrebMerkleTreeStorage(path string) *PogrebMerkleTreeStorage {
 		panic(err)
 	}
 	return &PogrebMerkleTreeStorage{db}
+}
+
+func (s *PogrebMerkleTreeStorage) Commit() {
+	s.db.Sync()
+	s.db.Compact()
+}
+
+func (s *PogrebMerkleTreeStorage) Close() {
+	s.db.Close()
 }
 
 func (s *PogrebMerkleTreeStorage) readObjectByHash(prefix [8]byte, h Hash, ret encoding.BinaryUnmarshaler) bool {
@@ -400,7 +414,7 @@ func (s *InMemoryMerkleTreeStorage) appendRoot(h Hash) {
 }
 
 type KVMerkleTree struct {
-	kvMerkleTreeStorage
+	KVMerkleTreeStorage
 	mh     MerkleHasher
 }
 
@@ -479,10 +493,10 @@ func (m *KVMerkleTree) GetPrevSibling(node Hash) Hash {
 	}
 }
 
-func NewRandomKVMerkleTree(s kvMerkleTreeStorage, n int, dim int) *KVMerkleTree {
+func NewRandomKVMerkleTree(s KVMerkleTreeStorage, n int, dim int) *KVMerkleTree {
 	mh := NewSHA256Hasher(dim)
 	m := &KVMerkleTree{
-		kvMerkleTreeStorage: s,
+		KVMerkleTreeStorage: s,
 		mh:     mh,
 	}
 
@@ -531,10 +545,10 @@ func NewRandomKVMerkleTree(s kvMerkleTreeStorage, n int, dim int) *KVMerkleTree 
 	return m
 }
 
-func NewKVMerkleTree(s kvMerkleTreeStorage, data [][]byte, dim int) *KVMerkleTree {
+func NewKVMerkleTree(s KVMerkleTreeStorage, data [][]byte, dim int) *KVMerkleTree {
 	mh := NewSHA256Hasher(dim)
 	m := &KVMerkleTree{
-		kvMerkleTreeStorage: s,
+		KVMerkleTreeStorage: s,
 		mh:     mh,
 	}
 
