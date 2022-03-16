@@ -9,6 +9,10 @@ type Verifier struct {
 	MerkleHasher
 }
 
+const (
+	BothWin = -1
+)
+
 // Match runs a match between a challenger and a prover. It takes the indices of the
 // two parties, and the mountain range reported by the prover, which should have a
 // shorter ledger than the challenger. It returns the index of the winner.
@@ -122,9 +126,63 @@ func (v *Verifier) Run() MountainRange {
 		}
 	}
 
-	// TODO: currently we do not have the tournament
-	cidx := DecideChallenger(mr...)
-	ridx := 1 - cidx
-	winner := v.Match(cidx, ridx, mr[ridx])
+	sizes := make([]int, len(v.From))
+	for i := range sizes {
+		for _, s := range mr[i].Sizes {
+			sizes[i] += s
+		}
+	}
+	safe := make(map[int]struct{})
+
+	findLargestSafe := func() (int, int) {
+		largestSafe := -1
+		largestSafeSize := -1
+		for k := range safe {
+			if sizes[k] > largestSafeSize {
+				largestSafe = k
+				largestSafeSize = sizes[k]
+			}
+		}
+		return largestSafe, largestSafeSize
+	}
+
+	for i := range sizes {
+		if len(safe) == 0 {
+			// no one is safe; the current peer automatically wins
+			safe[i] = struct{}{}
+		} else {
+			// use the current peer to challenge the largest peer in the safe set
+			// until all safe peer have lost, or the current peer has lost, or both win
+			for {
+				// use whoever that is larger to challenge the other
+				largestSafe, largestSafeSize := findLargestSafe()
+				var res int
+				if largestSafeSize > sizes[i] {
+					res = v.Match(largestSafe, i, mr[i])
+				} else {
+					res = v.Match(i, largestSafe, mr[largestSafe])
+				}
+				if res == BothWin {
+					// both wins; the ledgers appear to be compatible
+					safe[i] = struct{}{}
+					break
+				} else if res == i {
+					// the new peer wins; remove the one in the safe set, and try to compete against the next
+					delete(safe, largestSafe)
+					if len(safe) == 0 {
+						safe[i] = struct{}{}
+						break
+					}
+				} else if res == largestSafe {
+					// the one in the safe set wins; no point to continue
+					break
+				} else {
+					panic("unreachable")
+				}
+			}
+		}
+	}
+
+	winner, _ := findLargestSafe()
 	return mr[winner]
 }
