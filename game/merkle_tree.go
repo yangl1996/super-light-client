@@ -2,6 +2,7 @@ package game
 
 import (
 	"crypto/sha256"
+	//"github.com/dgraph-io/badger/v3"
 	"hash"
 )
 
@@ -79,12 +80,12 @@ func (m *SHA256Hasher) CheckProof(leafData []byte, proof []Hash, roots ...Hash) 
 	return false
 }
 
-type inMemoryMerkleTreeLeaf struct {
+type kvMerkleTreeLeaf struct {
 	data  []byte
 	index int
 }
 
-type inMemoryMerkleTreeInternal struct {
+type kvMerkleTreeInternal struct {
 	children    []Hash
 	subtreeSize int
 }
@@ -100,9 +101,9 @@ type InMemoryMerkleTree struct {
 
 func (m *InMemoryMerkleTree) GetSubtreeSize(node Hash) int {
 	switch n := m.nodes[node].(type) {
-	case inMemoryMerkleTreeLeaf:
+	case kvMerkleTreeLeaf:
 		return 1
-	case inMemoryMerkleTreeInternal:
+	case kvMerkleTreeInternal:
 		return n.subtreeSize
 	default:
 		panic("unknown node type")
@@ -114,11 +115,11 @@ func (m *InMemoryMerkleTree) GetRoots() []Hash {
 }
 
 func (m *InMemoryMerkleTree) GetChildren(node Hash) []Hash {
-	return m.nodes[node].(inMemoryMerkleTreeInternal).children
+	return m.nodes[node].(kvMerkleTreeInternal).children
 }
 
 func (m *InMemoryMerkleTree) GetProof(node Hash) []Hash {
-	_, yes := m.nodes[node].(inMemoryMerkleTreeLeaf)
+	_, yes := m.nodes[node].(kvMerkleTreeLeaf)
 	if !yes {
 		panic("node is not a leaf")
 	}
@@ -128,7 +129,7 @@ func (m *InMemoryMerkleTree) GetProof(node Hash) []Hash {
 		if !there {
 			break
 		}
-		pn := m.nodes[parent].(inMemoryMerkleTreeInternal)
+		pn := m.nodes[parent].(kvMerkleTreeInternal)
 		proof = append(proof, pn.children...)
 		node = parent
 	}
@@ -137,9 +138,9 @@ func (m *InMemoryMerkleTree) GetProof(node Hash) []Hash {
 
 func (m *InMemoryMerkleTree) IsLeaf(node Hash) bool {
 	switch m.nodes[node].(type) {
-	case inMemoryMerkleTreeLeaf:
+	case kvMerkleTreeLeaf:
 		return true
-	case inMemoryMerkleTreeInternal:
+	case kvMerkleTreeInternal:
 		return false
 	default:
 		panic("unknown node type")
@@ -147,11 +148,11 @@ func (m *InMemoryMerkleTree) IsLeaf(node Hash) bool {
 }
 
 func (m *InMemoryMerkleTree) GetData(node Hash) []byte {
-	return m.nodes[node].(inMemoryMerkleTreeLeaf).data
+	return m.nodes[node].(kvMerkleTreeLeaf).data
 }
 
 func (m *InMemoryMerkleTree) GetPrevSibling(node Hash) Hash {
-	n := m.nodes[node].(inMemoryMerkleTreeLeaf)
+	n := m.nodes[node].(kvMerkleTreeLeaf)
 	if n.index > 0 {
 		return m.leaves[n.index-1]
 	} else {
@@ -175,7 +176,7 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 		}
 		var nextHashes []Hash
 		for i := 0; i < size; i++ {
-			l := inMemoryMerkleTreeLeaf{
+			l := kvMerkleTreeLeaf{
 				data:  data[i],
 				index: len(m.leaves),
 			}
@@ -189,7 +190,7 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 			// internal nodes are referencing into nextHashes
 			nb := len(nextHashes) / dim
 			for i := 0; i < nb; i++ {
-				n := inMemoryMerkleTreeInternal{
+				n := kvMerkleTreeInternal{
 					children:    nextHashes[i*dim : i*dim+dim],
 					subtreeSize: size / nb,
 				}
