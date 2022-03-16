@@ -294,7 +294,7 @@ func (s *PogrebMerkleTreeStorage) getParent(h Hash) (Hash, bool) {
 }
 
 func (s *PogrebMerkleTreeStorage) getRoot(idx int) Hash {
-	hash, ok := s.readHashByIndex(parentHashPrefix, uint64(idx))
+	hash, ok := s.readHashByIndex(rootHashPrefix, uint64(idx))
 	if !ok {
 		panic("index does not exist")
 	}
