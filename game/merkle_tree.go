@@ -145,12 +145,23 @@ type PogrebMerkleTreeStorage struct {
 	db *pogreb.DB
 }
 
+func NewPogrebMerkleTreeStorage(path string) *PogrebMerkleTreeStorage {
+	db, err := pogreb.Open(path, nil)
+	if err != nil {
+		panic(err)
+	}
+	return &PogrebMerkleTreeStorage{db}
+}
+
 func (s *PogrebMerkleTreeStorage) readObjectByHash(prefix [8]byte, h Hash, ret encoding.BinaryUnmarshaler) bool {
 	key := [40]byte{}
 	copy(key[0:8], prefix[:])
 	copy(key[8:40], h[:])
 	val, err := s.db.Get(key[:])
 	if err != nil {
+		panic(err)
+	}
+	if val == nil {
 		return false
 	}
 	err = ret.UnmarshalBinary(val)
@@ -181,6 +192,9 @@ func (s *PogrebMerkleTreeStorage) readHashByIndex(prefix [8]byte, idx uint64) (H
 	binary.LittleEndian.PutUint64(key[8:], idx)
 	val, err := s.db.Get(key[:])
 	if err != nil {
+		panic(err)
+	}
+	if val == nil {
 		return Hash{}, false
 	}
 	var res Hash
@@ -205,6 +219,9 @@ func (s *PogrebMerkleTreeStorage) readHashByHash(prefix [8]byte, h Hash) (Hash, 
 	copy(key[8:40], h[:])
 	val, err := s.db.Get(key[:])
 	if err != nil {
+		panic(err)
+	}
+	if val == nil {
 		return Hash{}, false
 	}
 	var res Hash
@@ -226,6 +243,9 @@ func (s *PogrebMerkleTreeStorage) writeHashByHash(prefix [8]byte, k Hash, v Hash
 func (s *PogrebMerkleTreeStorage) readUint64(key [8]byte) uint64 {
 	val, err := s.db.Get(key[:])
 	if err != nil {
+		panic(err)
+	}
+	if val == nil {
 		return 0
 	}
 	return binary.LittleEndian.Uint64(val[:])

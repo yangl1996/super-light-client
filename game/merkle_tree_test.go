@@ -3,6 +3,8 @@ package game
 import (
 	"encoding/binary"
 	"testing"
+	"os"
+	"path/filepath"
 )
 
 func generateTree(sz, dim int, diff ...int) *KVMerkleTree {
@@ -17,7 +19,13 @@ func generateTree(sz, dim int, diff ...int) *KVMerkleTree {
 		}
 		testData = append(testData, bs)
 	}
-	storage := NewInMemoryMerkleTreeStorage()
+	//storage := NewInMemoryMerkleTreeStorage()
+	dir, err := os.MkdirTemp("", "merkle-test")
+	if err != nil {
+		panic(err)
+	}
+	file := filepath.Join(dir, "db")
+	storage := NewPogrebMerkleTreeStorage(file)
 	return NewKVMerkleTree(storage, testData, dim)
 }
 
@@ -41,5 +49,4 @@ func TestCreateMerkleTree(t *testing.T) {
 	generateTree(94534, 7)
 	generateTree(0, 2)
 	generateTree(130, 2)
-
 }
