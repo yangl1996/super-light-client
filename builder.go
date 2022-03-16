@@ -8,9 +8,9 @@ import (
 
 func buildTree(args []string) {
 	cmd := flag.NewFlagSet("build", flag.ExitOnError)
-	size := flag.Int("size", 1000000, "number of elements to insert")
-	path := flag.String("file", "tree.pogreb", "file to store the dirty tree")
-	dim := flag.Int("dim", 50, "degree/dimension of the tree")
+	size := cmd.Int("size", 1000000, "number of elements to insert")
+	path := cmd.String("file", "tree.pogreb", "file to store the dirty tree")
+	dim := cmd.Int("dim", 50, "degree/dimension of the tree")
 	cmd.Parse(args)
 
 	storage := game.NewPogrebMerkleTreeStorage(*path)

@@ -7,7 +7,7 @@ import (
 
 func serve(args []string) {
 	cmd := flag.NewFlagSet("serve", flag.ExitOnError)
-	port := flag.Int("port", 9000, "port to listen for incoming connections")
+	port := cmd.Int("port", 9000, "port to listen for incoming connections")
 	cmd.Parse(args)
 	log.Println(*port)
 }
