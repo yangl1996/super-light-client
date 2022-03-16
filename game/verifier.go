@@ -24,10 +24,16 @@ func (v *Verifier) Match(cidx, pidx int, pmr MountainRange) int {
 	// send the mountain range to the challenger, and wait for it to pick the start point
 	// for the game
 	v.To[cidx] <- pmr
-	sr, ok := (<-v.From[cidx]).(StartRoot)
-	if !ok {
-		return pidx
+	var sr StartRoot
+	switch m := (<-v.From[cidx]).(type) {
+	case StartRoot:
+		sr = m
+	case NestedLedger:
+		return BothWin
+	default:
+		return pidx	// unexpected type from the challenger
 	}
+
 	v.To[pidx] <- sr
 	responderPtr = pmr.Roots[sr.Index]
 	responderSize = pmr.Sizes[sr.Index]
@@ -103,6 +109,7 @@ func (v *Verifier) Run() MountainRange {
 	// TODO: timeout
 	mr := make([]MountainRange, len(v.From))
 	for i := range mr {
+		v.To[i] <- GetMountainRange{}
 		mr[i] = (<-v.From[i]).(MountainRange)
 		if len(mr[i].Sizes) != len(mr[i].Roots) {
 			panic("different length of root and size array")

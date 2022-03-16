@@ -7,7 +7,7 @@ import (
 )
 
 func TestFindDiff(t *testing.T) {
-	for diffIdx := 0; diffIdx < 273; diffIdx += 1 {
+	for diffIdx := 0; diffIdx < 299; diffIdx += 1 {
 		tree1 := generateTree(273, 5)
 		tree2 := generateTree(299, 5, diffIdx)
 
@@ -35,11 +35,18 @@ func TestFindDiff(t *testing.T) {
 			MerkleHasher: NewSHA256Hasher(5),
 		}
 		mr := v.Run()
-		if !reflect.DeepEqual(mr, p1.mountainRange()) {
+		var correct MountainRange
+		if diffIdx >= 273 {
 			// player 1 should win, because we do not check state transition for now, and it plays by the rule all the time
+			correct = p2.mountainRange()
+		} else {
+			correct = p1.mountainRange()
+		}
+		if !reflect.DeepEqual(mr, correct) {
 			t.Error("incorrect winner when diff at", diffIdx)
 		}
-
+		close(vp1)
+		close(vp2)
 		wg.Wait()
 	}
 }

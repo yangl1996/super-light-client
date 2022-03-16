@@ -4,6 +4,12 @@ var zeroHash = Hash{}
 
 type Message interface{}
 
+type GetMountainRange struct{}
+
+type NestedLedger struct{}
+
+type Terminate struct{}
+
 type OpenNext struct {
 	Index int
 }
@@ -34,38 +40,24 @@ type Session struct {
 	ptr  Hash
 }
 
-func DecideChallenger(m ...MountainRange) int {
-	winner := 0
-	winnerSize := 0
-	for i, mr := range m {
-		size := 0
-		for _, sz := range mr.Sizes {
-			size += sz
-		}
-		if size > winnerSize {
-			winner = i
-			winnerSize = size
-		}
-	}
-	return winner
-}
-
 func (s *Session) Run() {
-	mr := s.mountainRange()
-	s.O <- mr
-	msg := <-s.I
-	switch m := msg.(type) {
-	case MountainRange:
-		s.runChallenger(m)
-	case StartRoot:
-		s.runResponder(m)
-	default:
-		panic("unexpected message type")
+	defer close(s.O)
+	for msg := range s.I {
+		switch m := msg.(type) {
+		case GetMountainRange:
+			mr := s.mountainRange()
+			s.O <- mr
+		case MountainRange:
+			s.runChallenger(m)
+		case StartRoot:
+			s.runResponder(m)
+		default:
+			panic("unexpected message type")
+		}
 	}
 }
 
 func (s *Session) runResponder(sr StartRoot) {
-	defer close(s.O)
 	s.ptr = s.Tree.GetRoots()[sr.Index]
 
 	if s.Tree.IsLeaf(s.ptr) {
@@ -75,6 +67,9 @@ func (s *Session) runResponder(sr StartRoot) {
 		s.O <- NextChildren{s.Tree.GetChildren(s.ptr)}
 	}
 	for req := range s.I {
+		if _, terminate := req.(Terminate); terminate {
+			return
+		}
 		if _, correct := req.(OpenNext); !correct {
 			panic("unexpected challenge type")
 		}
@@ -90,10 +85,11 @@ func (s *Session) runResponder(sr StartRoot) {
 }
 
 func (s *Session) runChallenger(mr MountainRange) {
-	defer close(s.O)
 	rt, needGame := s.setStartPtr(mr)
 	if !needGame {
-		panic("do not need a game")
+		// do not need a game
+		s.O <- NestedLedger{}
+		return
 	}
 	s.O <- rt
 
@@ -101,6 +97,9 @@ func (s *Session) runChallenger(mr MountainRange) {
 		return
 	}
 	for resp := range s.I {
+		if _, terminate := resp.(Terminate); terminate {
+			return
+		}
 		// find the diff in the next level
 		if _, correct := resp.(NextChildren); !correct {
 			panic("unexpected response type")
