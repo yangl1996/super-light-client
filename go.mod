@@ -3,6 +3,7 @@ module github.com/yangl1996/super-light-client
 go 1.17
 
 require (
+	github.com/akrylysov/pogreb v0.10.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/dgraph-io/badger/v3 v3.2103.2 // indirect

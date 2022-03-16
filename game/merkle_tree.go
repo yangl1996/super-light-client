@@ -2,8 +2,10 @@ package game
 
 import (
 	"crypto/sha256"
-	//"github.com/dgraph-io/badger/v3"
+	"github.com/akrylysov/pogreb"
 	"hash"
+	"encoding/binary"
+	"encoding"
 )
 
 type Hash [32]byte
@@ -101,6 +103,174 @@ type kvMerkleTreeStorage interface {
 	storeInternal(h Hash, n kvMerkleTreeInternal)
 	storeParent(child Hash, parent Hash)
 	appendRoot(h Hash)
+}
+
+type PogrebMerkleTreeStorage struct {
+	db *pogreb.DB
+}
+
+func (s *PogrebMerkleTreeStorage) readObjectByHash(prefix [8]byte, h Hash, ret encoding.BinaryUnmarshaler) bool {
+	key := [40]byte{}
+	copy(key[0:8], prefix[:])
+	copy(key[8:40], h[:])
+	val, err := s.db.Get(key[:])
+	if err != nil {
+		return false
+	}
+	err = ret.UnmarshalBinary(val)
+	if err != nil {
+		panic(err)
+	}
+	return true
+}
+
+func (s *PogrebMerkleTreeStorage) writeObjectByHash(prefix [8]byte, h Hash, v encoding.BinaryMarshaler) {
+	key := [40]byte{}
+	copy(key[0:8], prefix[:])
+	copy(key[8:40], h[:])
+	buf, err := v.MarshalBinary()
+	if err != nil {
+		panic(err)
+	}
+	err = s.db.Put(key[:], buf[:])
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func (s *PogrebMerkleTreeStorage) readHashByIndex(prefix [8]byte, idx uint64) (Hash, bool) {
+	key := [16]byte{}
+	copy(key[0:8], prefix[:])
+	binary.LittleEndian.PutUint64(key[8:], idx)
+	val, err := s.db.Get(key[:])
+	if err != nil {
+		return Hash{}, false
+	}
+	var res Hash
+	copy(res[:], val[0:32])
+	return res, true
+}
+
+func (s *PogrebMerkleTreeStorage) writeHashByIndex(prefix [8]byte, idx uint64, v Hash) {
+	key := [16]byte{}
+	copy(key[0:8], prefix[:])
+	binary.LittleEndian.PutUint64(key[8:], idx)
+	err := s.db.Put(key[:], v[:])
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func (s *PogrebMerkleTreeStorage) readHashByHash(prefix [8]byte, h Hash) (Hash, bool) {
+	key := [40]byte{}
+	copy(key[0:8], prefix[:])
+	copy(key[8:40], h[:])
+	val, err := s.db.Get(key[:])
+	if err != nil {
+		return Hash{}, false
+	}
+	var res Hash
+	copy(res[:], val[0:32])
+	return res, true
+}
+
+func (s *PogrebMerkleTreeStorage) writeHashByHash(prefix [8]byte, k Hash, v Hash) {
+	key := [40]byte{}
+	copy(key[0:8], prefix[:])
+	copy(key[8:40], k[:])
+	err := s.db.Put(key[:], v[:])
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func (s *PogrebMerkleTreeStorage) readUint64(key [8]byte) uint64 {
+	val, err := s.db.Get(key[:])
+	if err != nil {
+		return 0
+	}
+	return binary.LittleEndian.Uint64(val[:])
+}
+
+func (s *PogrebMerkleTreeStorage) writeUint64(key [8]byte, d uint64) {
+	var buf [8]byte
+	binary.LittleEndian.PutUint64(buf[:], d)
+	err := s.db.Put(key[:], buf[:])
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+var leafNodePrefix = [8]byte{1}
+var internalNodePrefix = [8]byte{2}
+var leafHashPrefix = [8]byte{3}
+var parentHashPrefix = [8]byte{4}
+var rootHashPrefix = [8]byte{5}
+var numberOfRootPrefix = [8]byte{6}
+var numberOfLeafPrefix = [8]byte{7}
+
+func (s *PogrebMerkleTreeStorage) getLeaf(h Hash) (kvMerkleTreeLeaf, bool) {
+	var res kvMerkleTreeLeaf
+	ok := s.readObjectByHash(leafNodePrefix, h, &res)
+	return res, ok
+}
+
+func (s *PogrebMerkleTreeStorage) getLeafHashByIndex(idx int) Hash {
+	hash, ok := s.readHashByIndex(leafHashPrefix, uint64(idx))
+	if !ok {
+		panic("index does not exist")
+	}
+	return hash
+}
+
+func (s *PogrebMerkleTreeStorage) getInternal(h Hash) (kvMerkleTreeInternal, bool) {
+	var res kvMerkleTreeInternal
+	ok := s.readObjectByHash(internalNodePrefix, h, &res)
+	return res, ok
+}
+
+func (s *PogrebMerkleTreeStorage) getParent(h Hash) (Hash, bool) {
+	return s.readHashByHash(parentHashPrefix, h)
+}
+
+func (s *PogrebMerkleTreeStorage) getRoot(idx int) Hash {
+	hash, ok := s.readHashByIndex(parentHashPrefix, uint64(idx))
+	if !ok {
+		panic("index does not exist")
+	}
+	return hash
+}
+
+func (s *PogrebMerkleTreeStorage) getNumRoots() int {
+	return s.readUint64(numberOfRootPrefix)
+}
+
+func (s *PogrebMerkleTreeStorage) appendLeaf(h Hash, l kvMerkleTreeLeaf) {
+	idx := s.readUint64(numberOfLeafPrefix)
+	s.writeObjectByHash(leafNodePrefix, h, l)
+	s.writeHashByIndex(leafHashPrefix, idx, h)
+	s.writeUint64(numberOfLeafPrefix, idx+1)
+	return
+}
+func (s *PogrebMerkleTreeStorage) storeInternal(h Hash, n kvMerkleTreeInternal) {
+	s.writeObjectByHash(internalNodePrefix, h, n)
+	return
+}
+
+func (s *PogrebMerkleTreeStorage) storeParent(child Hash, parent Hash) {
+	s.writeHashByHash(parentHashPrefix, child, parent)
+	return
+}
+
+func (s *PogrebMerkleTreeStorage) appendRoot(h Hash) {
+	idx := s.readUint64(numberOfRootPrefix)
+	s.writeHashByIndex(rootHashPrefix, idx, h)
+	s.writeUint64(numberOfRootPrefix, idx+1)
+	return
 }
 
 // a read-only merkle tree stored in the memory
