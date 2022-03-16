@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func generateTree(sz, dim int, diff ...int) *InMemoryMerkleTree {
+func generateTree(sz, dim int, diff ...int) *KVMerkleTree {
 	nextDiffIdx := 0
 	testData := [][]byte{}
 	for i := 0; i < sz; i++ {
@@ -17,18 +17,22 @@ func generateTree(sz, dim int, diff ...int) *InMemoryMerkleTree {
 		}
 		testData = append(testData, bs)
 	}
-	return NewInMemoryMerkleTree(testData, dim)
+	storage := NewInMemoryMerkleTreeStorage()
+	return NewKVMerkleTree(storage, testData, dim)
 }
 
 func TestMerkleProof(t *testing.T) {
 	m := generateTree(125, 5)
-	p := m.GetProof(m.leaves[40])
+	p := m.GetProof(m.getLeafHashByIndex(40))
 	checker := NewSHA256Hasher(5)
-	if !checker.CheckProof(m.nodes[m.leaves[40]].(inMemoryMerkleTreeLeaf).data, p, m.roots[0]) {
+
+	n, _ := m.getLeaf(m.getLeafHashByIndex(40))
+	if !checker.CheckProof(n.data, p, m.getRoot(0)) {
 		t.Error("proof does not pass check")
 	}
 	m = generateTree(125, 5, 40)
-	if checker.CheckProof(m.nodes[m.leaves[41]].(inMemoryMerkleTreeLeaf).data, p, m.roots[0]) {
+	n, _ = m.getLeaf(m.getLeafHashByIndex(41))
+	if checker.CheckProof(n.data, p, m.getRoot(0)) {
 		t.Error("incorrect proof passes check")
 	}
 }

@@ -90,84 +90,177 @@ type kvMerkleTreeInternal struct {
 	subtreeSize int
 }
 
+type kvMerkleTreeStorage interface {
+	getLeaf(h Hash) (kvMerkleTreeLeaf, bool)
+	getLeafHashByIndex(idx int) Hash
+	getInternal(h Hash) (kvMerkleTreeInternal, bool)
+	getParent(h Hash) (Hash, bool)
+	getRoot(idx int) Hash
+	getNumRoots() int
+	appendLeaf(h Hash, l kvMerkleTreeLeaf)
+	storeInternal(h Hash, n kvMerkleTreeInternal)
+	storeParent(child Hash, parent Hash)
+	appendRoot(h Hash)
+}
+
 // a read-only merkle tree stored in the memory
-type InMemoryMerkleTree struct {
+type InMemoryMerkleTreeStorage struct {
 	nodes  map[Hash]interface{}
 	parent map[Hash]Hash
 	leaves []Hash
 	roots  []Hash
-	mh     MerkleHasher
 }
 
-func (m *InMemoryMerkleTree) GetSubtreeSize(node Hash) int {
-	switch n := m.nodes[node].(type) {
-	case kvMerkleTreeLeaf:
-		return 1
-	case kvMerkleTreeInternal:
-		return n.subtreeSize
-	default:
-		panic("unknown node type")
+func NewInMemoryMerkleTreeStorage() *InMemoryMerkleTreeStorage {
+	return &InMemoryMerkleTreeStorage {
+		nodes: make(map[Hash]interface{}),
+		parent: make(map[Hash]Hash),
 	}
 }
 
-func (m *InMemoryMerkleTree) GetRoots() []Hash {
-	return m.roots
+func (s *InMemoryMerkleTreeStorage) getLeaf(h Hash) (kvMerkleTreeLeaf, bool) {
+	switch n := s.nodes[h].(type) {
+	case kvMerkleTreeLeaf:
+		return n, true
+	default:
+		return kvMerkleTreeLeaf{}, false
+	}
 }
 
-func (m *InMemoryMerkleTree) GetChildren(node Hash) []Hash {
-	return m.nodes[node].(kvMerkleTreeInternal).children
+func (s *InMemoryMerkleTreeStorage) getLeafHashByIndex(idx int) Hash {
+	return s.leaves[idx]
 }
 
-func (m *InMemoryMerkleTree) GetProof(node Hash) []Hash {
-	_, yes := m.nodes[node].(kvMerkleTreeLeaf)
+func (s *InMemoryMerkleTreeStorage) getInternal(h Hash) (kvMerkleTreeInternal, bool) {
+	switch n := s.nodes[h].(type) {
+	case kvMerkleTreeInternal:
+		return n, true
+	default:
+		return kvMerkleTreeInternal{}, false
+	}
+}
+
+func (s *InMemoryMerkleTreeStorage) getParent(h Hash) (Hash, bool) {
+	data, ok := s.parent[h]
+	return data, ok
+}
+
+func (s *InMemoryMerkleTreeStorage) getRoot(idx int) Hash {
+	return s.roots[idx]
+}
+
+func (s *InMemoryMerkleTreeStorage) getNumRoots() int {
+	return len(s.roots)
+}
+
+func (s *InMemoryMerkleTreeStorage) appendLeaf(h Hash, l kvMerkleTreeLeaf) {
+	s.nodes[h] = l
+	s.leaves = append(s.leaves, h)
+	return
+}
+func (s *InMemoryMerkleTreeStorage) storeInternal(h Hash, n kvMerkleTreeInternal) {
+	s.nodes[h] = n
+	return
+}
+
+func (s *InMemoryMerkleTreeStorage) storeParent(child Hash, parent Hash) {
+	s.parent[child] = parent
+	return
+}
+
+func (s *InMemoryMerkleTreeStorage) appendRoot(h Hash) {
+	s.roots = append(s.roots, h)
+	return
+}
+
+type KVMerkleTree struct {
+	kvMerkleTreeStorage
+	mh     MerkleHasher
+}
+
+func (m *KVMerkleTree) GetSubtreeSize(node Hash) int {
+	n, ok := m.getInternal(node)
+	if ok {
+		return n.subtreeSize
+	}
+	_, ok = m.getLeaf(node)
+	if ok {
+		return 1
+	}
+	panic("unknown node")
+}
+
+func (m *KVMerkleTree) GetRoots() []Hash {
+	n := m.getNumRoots()
+	roots := []Hash{}
+	for i := 0; i < n; i++ {
+		roots = append(roots, m.getRoot(i))
+	}
+	return roots
+}
+
+func (m *KVMerkleTree) GetChildren(node Hash) []Hash {
+	n, ok := m.getInternal(node)
+	if !ok {
+		panic("unknown node")
+	}
+	return n.children
+}
+
+func (m *KVMerkleTree) GetProof(node Hash) []Hash {
+	_, yes := m.getLeaf(node)
 	if !yes {
 		panic("node is not a leaf")
 	}
 	proof := []Hash{}
 	for {
-		parent, there := m.parent[node]
+		parent, there := m.getParent(node)
 		if !there {
 			break
 		}
-		pn := m.nodes[parent].(kvMerkleTreeInternal)
+		pn, ok := m.getInternal(parent)
+		if !ok {
+			panic("unknown node")
+		}
 		proof = append(proof, pn.children...)
 		node = parent
 	}
 	return proof
 }
 
-func (m *InMemoryMerkleTree) IsLeaf(node Hash) bool {
-	switch m.nodes[node].(type) {
-	case kvMerkleTreeLeaf:
-		return true
-	case kvMerkleTreeInternal:
-		return false
-	default:
-		panic("unknown node type")
+func (m *KVMerkleTree) IsLeaf(node Hash) bool {
+	_, ok := m.getLeaf(node)
+	return ok
+}
+
+func (m *KVMerkleTree) GetData(node Hash) []byte {
+	n, ok := m.getLeaf(node)
+	if !ok {
+		panic("unknown node")
 	}
+	return n.data
 }
 
-func (m *InMemoryMerkleTree) GetData(node Hash) []byte {
-	return m.nodes[node].(kvMerkleTreeLeaf).data
-}
-
-func (m *InMemoryMerkleTree) GetPrevSibling(node Hash) Hash {
-	n := m.nodes[node].(kvMerkleTreeLeaf)
+func (m *KVMerkleTree) GetPrevSibling(node Hash) Hash {
+	n, ok := m.getLeaf(node)
+	if !ok {
+		panic("unknown node")
+	}
 	if n.index > 0 {
-		return m.leaves[n.index-1]
+		return m.getLeafHashByIndex(n.index-1)
 	} else {
 		return Hash{}
 	}
 }
 
-func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
+func NewKVMerkleTree(s kvMerkleTreeStorage, data [][]byte, dim int) *KVMerkleTree {
 	mh := NewSHA256Hasher(dim)
-	m := &InMemoryMerkleTree{
+	m := &KVMerkleTree{
+		kvMerkleTreeStorage: s,
 		mh:     mh,
-		nodes:  make(map[Hash]interface{}),
-		parent: make(map[Hash]Hash),
 	}
 
+	idx := 0
 	for len(data) > 0 {
 		// compute the size of the next tree
 		size := 1
@@ -178,12 +271,12 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 		for i := 0; i < size; i++ {
 			l := kvMerkleTreeLeaf{
 				data:  data[i],
-				index: len(m.leaves),
+				index: idx,
 			}
 			h := m.mh.HashData(data[i])
 			nextHashes = append(nextHashes, h)
-			m.leaves = append(m.leaves, h)
-			m.nodes[h] = l
+			m.appendLeaf(h, l)
+			idx++
 		}
 		for len(nextHashes) > 1 {
 			var hashes []Hash // it is important that we allocate a new array because
@@ -195,19 +288,19 @@ func NewInMemoryMerkleTree(data [][]byte, dim int) *InMemoryMerkleTree {
 					subtreeSize: size / nb,
 				}
 				h := m.mh.ComputeParent(nextHashes[i*dim : i*dim+dim])
-				m.nodes[h] = n
+				m.storeInternal(h, n)
 				hashes = append(hashes, h)
 				for j := 0; j < dim; j++ {
-					m.parent[nextHashes[i*dim+j]] = h
+					m.storeParent(nextHashes[i*dim+j], h)
 				}
 			}
 			nextHashes = hashes
 		}
 		// append the root
-		m.roots = append(m.roots, nextHashes[0])
+		m.appendRoot(nextHashes[0])
 		data = data[size:]
 	}
 	return m
 }
 
-var test MerkleTree = &InMemoryMerkleTree{}
+var test MerkleTree = &KVMerkleTree{}
