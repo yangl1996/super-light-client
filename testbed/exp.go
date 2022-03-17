@@ -114,7 +114,14 @@ func runAll(servers []Server, clients []*ssh.Client, fn func(Server, *ssh.Client
 			defer wg.Done()
 			err := fn(s, c)
 			if err != nil {
-				fmt.Println("error executing on server", i, ":", err)
+				switch err := err.(type) {
+				case *exec.ExitError:
+					fmt.Printf("error executing local command for server %v: %s\n", i, err.Stderr)
+				case *ssh.ExitError:
+					fmt.Printf("error executing command on server %v: %s\n", i, err.Msg())
+				default:
+					fmt.Printf("error executing on server %v: %v\n", i, err)
+				}
 			}
 		}(i, servers[i], clients[i])
 	}
@@ -135,8 +142,9 @@ func copyBackFile(s Server, from, dest string) error {
 }
 
 func uploadFile(s Server, from, dest string) error {
-	toStr := fmt.Sprintf("%s@%s:%s", s.User, s.PublicIP, from)
+	toStr := fmt.Sprintf("%s@%s:%s", s.User, s.PublicIP, dest)
 	cmdArgs := []string{"-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-i", s.KeyPath, from, toStr}
+	//fmt.Println(cmdArgs)
 	proc := exec.Command("scp", cmdArgs...)
 	err := proc.Run()
 	if err != nil {
@@ -150,8 +158,7 @@ func killServer(c *ssh.Client) error {
 	if err != nil {
 		return RemoteError{err, "error creating session"}
 	}
-	// flush the iptables, kill all mahimahi shells, and kill all pikad
-	pkill.Run(`bash -c "sudo pkill -9 super-light-client"`)
+	pkill.Run(`killall -w super-light-client`)
 	pkill.Close()
 	return nil
 }
@@ -161,7 +168,7 @@ func cleanUpLedger(c *ssh.Client) error {
 	if err != nil {
 		return RemoteError{err, "error creating session"}
 	}
-	rmrf.Run(`bash -c "rm -f tree.pogreb"`)
+	rmrf.Run(`rm -rf tree.pogreb`)
 	rmrf.Close()
 	return nil
 }
