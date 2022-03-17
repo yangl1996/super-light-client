@@ -145,6 +145,8 @@ type KVMerkleTreeStorage interface {
 type DiskBackedMerkleTreeStorage interface {
 	Commit()
 	Close()
+	GetDegree() int
+	StoreDegree(d int)
 }
 
 type PogrebMerkleTreeStorage struct {
@@ -166,6 +168,18 @@ func (s *PogrebMerkleTreeStorage) Commit() {
 
 func (s *PogrebMerkleTreeStorage) Close() {
 	s.db.Close()
+}
+
+func (s *PogrebMerkleTreeStorage) GetDegree() int {
+	res := s.readUint64(dimensionPrefix)
+	if res != 0 {
+		panic("key does not exist or value is invalid")
+	}
+	return int(res)
+}
+
+func (s *PogrebMerkleTreeStorage) StoreDegree(d int) {
+	s.writeUint64(dimensionPrefix, uint64(d))
 }
 
 func (s *PogrebMerkleTreeStorage) readObjectByHash(prefix [8]byte, h Hash, ret encoding.BinaryUnmarshaler) bool {
@@ -283,6 +297,7 @@ var parentHashPrefix = [8]byte{4}
 var rootHashPrefix = [8]byte{5}
 var numberOfRootPrefix = [8]byte{6}
 var numberOfLeafPrefix = [8]byte{7}
+var dimensionPrefix = [8]byte{8}
 
 func (s *PogrebMerkleTreeStorage) getLeaf(h Hash) (kvMerkleTreeLeaf, bool) {
 	var res kvMerkleTreeLeaf
@@ -494,7 +509,9 @@ func (m *KVMerkleTree) GetPrevSibling(node Hash) Hash {
 	}
 }
 
-func NewRandomKVMerkleTree(s KVMerkleTreeStorage, n int, dim int) *KVMerkleTree {
+type MerkleTreeDataGenerator func(int) []byte
+
+func NewKVMerkleTree(s KVMerkleTreeStorage, dg MerkleTreeDataGenerator, n int, dim int) *KVMerkleTree {
 	mh := NewSHA256Hasher(dim)
 	m := &KVMerkleTree{
 		KVMerkleTreeStorage: s,
@@ -510,8 +527,7 @@ func NewRandomKVMerkleTree(s KVMerkleTreeStorage, n int, dim int) *KVMerkleTree 
 		}
 		var nextHashes []Hash
 		for i := 0; i < size; i++ {
-			var data [8]byte
-			binary.LittleEndian.PutUint64(data[:], uint64(idx))
+			data := dg(idx)
 			l := kvMerkleTreeLeaf{
 				data:  data[:],
 				index: idx,
@@ -548,56 +564,6 @@ func NewRandomKVMerkleTree(s KVMerkleTreeStorage, n int, dim int) *KVMerkleTree 
 		// append the root
 		m.appendRoot(nextHashes[0])
 		n -= size
-	}
-	return m
-}
-
-func NewKVMerkleTree(s KVMerkleTreeStorage, data [][]byte, dim int) *KVMerkleTree {
-	mh := NewSHA256Hasher(dim)
-	m := &KVMerkleTree{
-		KVMerkleTreeStorage: s,
-		mh:     mh,
-	}
-
-	idx := 0
-	for len(data) > 0 {
-		// compute the size of the next tree
-		size := 1
-		for size*dim <= len(data) {
-			size = size * dim
-		}
-		var nextHashes []Hash
-		for i := 0; i < size; i++ {
-			l := kvMerkleTreeLeaf{
-				data:  data[i],
-				index: idx,
-			}
-			h := m.mh.HashData(data[i])
-			nextHashes = append(nextHashes, h)
-			m.appendLeaf(h, l)
-			idx++
-		}
-		for len(nextHashes) > 1 {
-			var hashes []Hash // it is important that we allocate a new array because
-			// internal nodes are referencing into nextHashes
-			nb := len(nextHashes) / dim
-			for i := 0; i < nb; i++ {
-				n := kvMerkleTreeInternal{
-					children:    nextHashes[i*dim : i*dim+dim],
-					subtreeSize: size / nb,
-				}
-				h := m.mh.ComputeParent(nextHashes[i*dim : i*dim+dim])
-				m.storeInternal(h, n)
-				hashes = append(hashes, h)
-				for j := 0; j < dim; j++ {
-					m.storeParent(nextHashes[i*dim+j], h)
-				}
-			}
-			nextHashes = hashes
-		}
-		// append the root
-		m.appendRoot(nextHashes[0])
-		data = data[size:]
 	}
 	return m
 }

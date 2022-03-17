@@ -3,30 +3,29 @@ package game
 import (
 	"encoding/binary"
 	"testing"
-	"os"
-	"path/filepath"
+	//"os"
+	//"path/filepath"
 )
 
 func generateTree(sz, dim int, diff ...int) *KVMerkleTree {
 	nextDiffIdx := 0
-	testData := [][]byte{}
-	for i := 0; i < sz; i++ {
+	testData := func(i int) []byte {
 		bs := make([]byte, 8)
 		binary.LittleEndian.PutUint64(bs, uint64(i))
 		if nextDiffIdx < len(diff) && diff[nextDiffIdx] == i {
 			nextDiffIdx += 1
 			bs = append(bs, []byte("diff")...)
 		}
-		testData = append(testData, bs)
+		return bs
 	}
-	//storage := NewInMemoryMerkleTreeStorage()
-	dir, err := os.MkdirTemp("", "merkle-test")
-	if err != nil {
-		panic(err)
-	}
-	file := filepath.Join(dir, "db")
-	storage := NewPogrebMerkleTreeStorage(file)
-	return NewKVMerkleTree(storage, testData, dim)
+	storage := NewInMemoryMerkleTreeStorage()
+	//dir, err := os.MkdirTemp("", "merkle-test")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//file := filepath.Join(dir, "db")
+	//storage := NewPogrebMerkleTreeStorage(file)
+	return NewKVMerkleTree(storage, testData, sz, dim)
 }
 
 func TestMerkleProof(t *testing.T) {
