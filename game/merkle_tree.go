@@ -143,6 +143,7 @@ type KVMerkleTreeStorage interface {
 }
 
 type DiskBackedMerkleTreeStorage interface {
+	KVMerkleTreeStorage
 	Commit()
 	Close()
 	GetDegree() int
@@ -511,11 +512,24 @@ func (m *KVMerkleTree) GetPrevSibling(node Hash) Hash {
 
 type MerkleTreeDataGenerator func(int) []byte
 
+func OpenKVMerkleTree(s DiskBackedMerkleTreeStorage) *KVMerkleTree {
+	deg := s.GetDegree()
+	mh := NewSHA256Hasher(deg)
+	return &KVMerkleTree {
+		KVMerkleTreeStorage: s,
+		mh:     mh,
+	}
+}
+
 func NewKVMerkleTree(s KVMerkleTreeStorage, dg MerkleTreeDataGenerator, n int, dim int) *KVMerkleTree {
 	mh := NewSHA256Hasher(dim)
 	m := &KVMerkleTree{
 		KVMerkleTreeStorage: s,
 		mh:     mh,
+	}
+
+	if disk, correct := m.KVMerkleTreeStorage.(DiskBackedMerkleTreeStorage); correct {
+		disk.StoreDegree(dim)
 	}
 
 	idx := 0

@@ -8,12 +8,14 @@ import (
 )
 
 func generateTree(sz, dim int, diff ...int) *KVMerkleTree {
-	nextDiffIdx := 0
+	diffSet := make(map[int]struct{})
+	for _, v := range diff {
+		diffSet[v] = struct{}{}
+	}
 	testData := func(i int) []byte {
 		bs := make([]byte, 8)
 		binary.LittleEndian.PutUint64(bs, uint64(i))
-		if nextDiffIdx < len(diff) && diff[nextDiffIdx] == i {
-			nextDiffIdx += 1
+		if _, ok := diffSet[i]; ok {
 			bs = append(bs, []byte("diff")...)
 		}
 		return bs
