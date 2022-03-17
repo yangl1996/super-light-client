@@ -15,6 +15,9 @@ func main() {
 	gob.Register(game.NextChildren{})
 	gob.Register(game.StateTransition{})
 	gob.Register(game.MountainRange{})
+	gob.Register(game.GetMountainRange{})
+	gob.Register(game.NestedLedger{})
+	gob.Register(game.Terminate{})
 
 	rand.Seed(time.Now().UnixNano())
 	if len(os.Args) < 2 {
