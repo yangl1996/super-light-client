@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"github.com/yangl1996/super-light-client/game"
+	"math"
 	"net"
 	"time"
 )
@@ -37,7 +38,7 @@ func newVerifier(servers []string, deg int) *game.Verifier {
 func verify(args []string) {
 	cmd := flag.NewFlagSet("verify", flag.ExitOnError)
 	deg := cmd.Int("dim", 50, "dimension of the tree")
-	num := cmd.Int("N", 100, "number of back-to-back verifications to perform")
+	num := cmd.Int("N", 10, "number of back-to-back verifications to perform")
 	cmd.Parse(args)
 	servers := cmd.Args()
 	if len(servers) < 2 {
@@ -46,14 +47,24 @@ func verify(args []string) {
 
 	v := newVerifier(cmd.Args(), *deg)
 
-	start := time.Now()
+	durs := []float64{}
 	log.Printf("running verifications")
 	for i := 0; i < *num; i++ {
+		start := time.Now()
 		_, winner := v.Run()
+		dur := float64(time.Since(start).Milliseconds())
+		durs = append(durs, dur)
 		log.Printf("server %v is winner\n", winner)
 	}
-	dur := time.Since(start)
-	log.Printf("time for %v verifications is %v us\n", *num, dur.Microseconds())
-}
+	avg := 0.0
+	sqavg := 0.0
+	for _, dur := range durs {
+		avg += dur
+		sqavg += dur * dur
+	}
+	avg /= float64(len(durs))
+	sqavg /= float64(len(durs))
 
+	log.Printf("finished %v runs, avg %.2f ms, stddev %.2f ms\n", len(durs), avg, math.Sqrt(sqavg-avg*avg))
+}
 
