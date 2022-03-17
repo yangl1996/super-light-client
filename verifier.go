@@ -5,6 +5,7 @@ import (
 	"log"
 	"github.com/yangl1996/super-light-client/game"
 	"net"
+	"time"
 )
 
 func newVerifier(servers []string, deg int) *game.Verifier {
@@ -44,11 +45,14 @@ func verify(args []string) {
 	}
 
 	v := newVerifier(cmd.Args(), *deg)
-	for i := 0; i < *num; i++ {
-		mr := v.Run()
-		log.Println(mr)
-	}
 
+	start := time.Now()
+	for i := 0; i < *num; i++ {
+		_, winner := v.Run()
+		log.Printf("server %v is winner\n", winner)
+	}
+	dur := time.Since(start)
+	log.Printf("time for %v verifications is %v us\n", *num, dur.Microseconds())
 }
 
 

@@ -100,7 +100,7 @@ func (v *Verifier) Match(cidx, pidx int, pmr MountainRange) int {
 	return pidx
 }
 
-func (v *Verifier) Run() MountainRange {
+func (v *Verifier) Run() (MountainRange, int) {
 	if len(v.To) != len(v.From) {
 		panic("verifier launched with different incoming channels and outgoing channels")
 	}
@@ -191,5 +191,5 @@ func (v *Verifier) Run() MountainRange {
 	}
 
 	winner, _ := findLargestSafe()
-	return mr[winner]
+	return mr[winner], winner
 }

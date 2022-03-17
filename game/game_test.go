@@ -34,7 +34,7 @@ func TestFindDiff(t *testing.T) {
 			Dim:          5,
 			MerkleHasher: NewSHA256Hasher(5),
 		}
-		mr := v.Run()
+		mr, _ := v.Run()
 		var correct MountainRange
 		if diffIdx >= 273 {
 			// player 1 should win, because we do not check state transition for now, and it plays by the rule all the time
