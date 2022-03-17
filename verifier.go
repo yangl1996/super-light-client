@@ -47,6 +47,7 @@ func verify(args []string) {
 	v := newVerifier(cmd.Args(), *deg)
 
 	start := time.Now()
+	log.Printf("running verifications")
 	for i := 0; i < *num; i++ {
 		_, winner := v.Run()
 		log.Printf("server %v is winner\n", winner)

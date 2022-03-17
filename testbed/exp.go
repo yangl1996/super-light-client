@@ -102,6 +102,7 @@ func dispatchBwTest(args []string) {
 			}
 			defer sess.Close()
 			cmd := fmt.Sprintf("./super-light-client serve")
+			fmt.Println(s.Location, "started serving")
 			return sess.Run(cmd)
 		}
 		runAll(servers, clients, fn)
