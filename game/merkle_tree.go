@@ -173,7 +173,7 @@ func (s *PogrebMerkleTreeStorage) Close() {
 
 func (s *PogrebMerkleTreeStorage) GetDegree() int {
 	res := s.readUint64(dimensionPrefix)
-	if res != 0 {
+	if res == 0 {
 		panic("key does not exist or value is invalid")
 	}
 	return int(res)

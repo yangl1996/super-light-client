@@ -7,19 +7,7 @@ import (
 	"net"
 )
 
-type peer struct {
-
-}
-
-func verify(args []string) {
-	cmd := flag.NewFlagSet("verify", flag.ExitOnError)
-	deg := cmd.Int("dim", 50, "dimension of the tree")
-	cmd.Parse(args)
-	servers := cmd.Args()
-	if len(servers) < 2 {
-		log.Fatalln("supply at least 2 servers")
-	}
-
+func newVerifier(servers []string, deg int) *game.Verifier {
 	var toProvers []chan<- game.Message
 	var fromProvers []<-chan game.Message
 
@@ -39,11 +27,27 @@ func verify(args []string) {
 	v := game.Verifier {
 		To: toProvers,
 		From: fromProvers,
-		Dim: *deg,
-		MerkleHasher: game.NewSHA256Hasher(*deg),
+		Dim: deg,
+		MerkleHasher: game.NewSHA256Hasher(deg),
 	}
-	mr := v.Run()
-	log.Println(mr)
+	return &v
+}
+
+func verify(args []string) {
+	cmd := flag.NewFlagSet("verify", flag.ExitOnError)
+	deg := cmd.Int("dim", 50, "dimension of the tree")
+	num := cmd.Int("N", 100, "number of back-to-back verifications to perform")
+	cmd.Parse(args)
+	servers := cmd.Args()
+	if len(servers) < 2 {
+		log.Fatalln("supply at least 2 servers as command line arguments")
+	}
+
+	v := newVerifier(cmd.Args(), *deg)
+	for i := 0; i < *num; i++ {
+		mr := v.Run()
+		log.Println(mr)
+	}
 
 }
 

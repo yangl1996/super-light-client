@@ -27,6 +27,7 @@ func serve(args []string) {
 		if err != nil {
 			log.Fatal(err)
 		}
+		log.Println("light client connected")
 		go handleConn(conn, tree)
 	}
 }
@@ -42,6 +43,7 @@ func handleConn(conn net.Conn, tree game.MerkleTree) error {
 		O: toPeer,
 	}
 	s.Run()
+	log.Println("light client disconnecting")
 	return nil
 }
 
