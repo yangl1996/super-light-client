@@ -357,17 +357,7 @@ func AWSStartInstanceAtRegion(region string, count int, tag string) error {
 
 # increase the max. ssh sessions
 echo 'MaxSessions 1024' >> /etc/ssh/sshd_config
-
-# mount nvme
-diskname=$(lsblk | grep 372 | cut -f 1 -d " ")
-mkdir -m 777 /pika
-mkfs -F -t ext4 /dev/$diskname
-mount /dev/$diskname /pika
-chmod 777 /pika
-
-apt-get install -y chrony
-sed -i '1s/^/server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4\n/' /etc/chrony/chrony.conf
-/etc/init.d/chrony restart`
+`
 
 	encodedUserdata := base64.StdEncoding.EncodeToString([]byte(userdata))
 
@@ -377,14 +367,14 @@ sed -i '1s/^/server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4\n/' /etc/c
 			{
 				DeviceName: aws.String("/dev/sda1"),
 				Ebs: &ec2.EbsBlockDevice{
-					VolumeSize: aws.Int64(128),
+					VolumeSize: aws.Int64(512),
 					DeleteOnTermination: aws.Bool(true),
 					VolumeType: aws.String("gp2"),
 				},
 			},
 		},
 		ImageId: aws.String(ami),
-		InstanceType: aws.String("c5d.xlarge"),
+		InstanceType: aws.String("r5.xlarge"),
 		KeyName: aws.String(keyid),
 		MinCount: aws.Int64(int64(count)),
 		MaxCount: aws.Int64(int64(count)),
