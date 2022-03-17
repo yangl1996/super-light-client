@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/yangl1996/super-light-client/game"
-//	"log"
+	"log"
 )
 
 func buildTree(args []string) {
@@ -15,6 +15,7 @@ func buildTree(args []string) {
 
 	storage := game.NewPogrebMerkleTreeStorage(*path)
 	game.NewRandomKVMerkleTree(storage, *size, *dim)
+	log.Println("committing to the disk")
 	storage.Commit()
 	storage.Close()
 }

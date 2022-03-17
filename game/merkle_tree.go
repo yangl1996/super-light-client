@@ -6,6 +6,7 @@ import (
 	"hash"
 	"encoding/binary"
 	"encoding"
+	"log"
 )
 
 type Hash [32]byte
@@ -519,6 +520,12 @@ func NewRandomKVMerkleTree(s KVMerkleTreeStorage, n int, dim int) *KVMerkleTree 
 			nextHashes = append(nextHashes, h)
 			m.appendLeaf(h, l)
 			idx++
+			if idx % 1000000 == 0 {
+				log.Printf("building dirty tree [%v/%v]\n", idx, n)
+				if disk, correct := m.KVMerkleTreeStorage.(DiskBackedMerkleTreeStorage); correct {
+					disk.Commit()
+				}
+			}
 		}
 		for len(nextHashes) > 1 {
 			var hashes []Hash // it is important that we allocate a new array because
