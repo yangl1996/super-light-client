@@ -79,7 +79,7 @@ func dispatchBwTest(args []string) {
 				return err
 			}
 			defer sess.Close()
-			cmd := fmt.Sprintf("./super-light-client build -diff %d -dim %d -size %d", diff, *generate, *dim)
+			cmd := fmt.Sprintf("./super-light-client build -diff %d -dim %d -size %d", diff, *dim, *generate)
 			return sess.Run(cmd)
 		}
 		runAll(servers, clients, fn)
