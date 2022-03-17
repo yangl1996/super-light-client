@@ -60,6 +60,9 @@ func dispatchBwTest(args []string) {
 
 	if *install != "" {
 		fn := func(s Server, c *ssh.Client) error {
+			if err := killServer(c); err != nil {
+				return err
+			}
 			return uploadFile(s, *install, "super-light-client")
 		}
 		runAll(servers, clients, fn)
@@ -70,6 +73,9 @@ func dispatchBwTest(args []string) {
 			var diff int
 			for diff == 0 {
 				diff = rand.Intn(*generate)
+			}
+			if err := killServer(c); err != nil {
+				return err
 			}
 			if err := cleanUpLedger(c); err != nil {
 				return err
