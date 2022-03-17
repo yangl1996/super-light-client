@@ -1,0 +1,9 @@
+# Setup: 10M txs on 17 AWS DCs. Vary degree and record the avg/stddev over 10 runs
+# degree     avg time (ms)    stddev (ms)
+10000 89332.90 21029.49
+1000 19770.20 1489.54
+500 19009.40 578.50
+300 18366.70 558.94
+100 23458.70 160.58
+10 41021.60 38.76
+
