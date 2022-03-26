@@ -9,4 +9,8 @@ set yrange [0:30]
 set xrange [500:200000000]
 set logscale x
 
-plot "trend" using 1:($2/1000.0):($3/1000.0) notitle with errorlines lw 2
+f(x) = a + b * log(x)
+fit f(x) "trend" using 1:($2/1000) via a, b
+
+plot "trend" using 1:($2/1000.0):($3/1000.0) notitle with yerrorbars lw 2, \
+     f(x) notitle with lines lw 2
