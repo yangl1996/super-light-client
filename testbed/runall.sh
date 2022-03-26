@@ -4,6 +4,8 @@ for m in 1000 25000 62500 156250 390625 976562 2441406 6103515; do
 	./testbed exp -serve -dim 300 &
 	lastpid=$!
 	../super-light-client verify -dim 300 $(./testbed verify) &> $m.out
+	res=`echo $m.out | grep finished | cut -f 7,10 -d' '`
+	echo "$m $res" >> output
 	kill $!
 	wait $!
 done
