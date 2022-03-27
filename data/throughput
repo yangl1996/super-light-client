@@ -1,0 +1,24 @@
+# 2 servers in the same DC, 10m transactions, degree 300, one node in the same DC generating verifictions back to back using diff number of threads (each thread generate 200)
+# nthreads mean stddev (ms)
+1 8.79 0.70
+2 9.49 0.80
+5 13.20 1.73
+10 20.86 3.53
+15 30.20 6.14
+20 37.24 8.85
+25 44.08 12.57
+30 51.34 16.63
+35 58.02 20.97
+40 65.18 26.15
+45 71.93 30.95
+50 79.04 37.29
+75 113.43 66.97
+100 149.65 98.11
+125 185.28 131.93
+150 221.96 165.80
+175 259.43 199.85
+200 294.71 233.58
+225 333.11 275.23
+250 369.15 309.14
+275 405.50 342.64
+300 443.33 382.98
