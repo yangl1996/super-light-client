@@ -9,4 +9,8 @@ set yrange [0:120]
 set xrange [5:20000]
 set logscale x
 
-plot "10m" using 1:($2/1000.0):($3/1000.0) notitle with errorlines lw 2
+f(x) = a * x + (b / log(x)) * (c + d * x)
+fit f(x) "10m" using 1:($2/1000) via a, b, c, d
+
+plot "10m" using 1:($2/1000.0):($3/1000.0) notitle with yerrorbars lw 2, \
+     f(x) notitle with lines lw 2

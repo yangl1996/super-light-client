@@ -1,4 +1,4 @@
-for m in 20 40 60 150 2000 4000 6000; do
+for m in 7000 8000 9000; do
 	pkill testbed
 	./testbed exp -generate 10000000 -dim $m
 	./testbed exp -serve -dim $m &
